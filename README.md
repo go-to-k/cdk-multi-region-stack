@@ -127,7 +127,7 @@ At synth time this produces one CloudFormation stack per region, all with the **
     });
     ```
 
-    Or set it in `cdk.json` under `context`. The trade-off: `strong` blocks you from deleting a producer that's still referenced, while `weak` does not (in the current release that guard isn't actually enforced either — see [FINDINGS](docs/FINDINGS.md)). Replacing a referenced resource does not auto-propagate under either strength.
+    Or set it in `cdk.json` under `context`. Note that replacing a referenced resource does not auto-propagate under either strength.
 
 ## Conditionally skipping a region
 
