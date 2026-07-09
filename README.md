@@ -35,7 +35,7 @@ At synth time this produces one CloudFormation stack per region, all with the **
 
 ## Requirements and caveats
 
-- **Concrete `env` required.** `env.account` and `env.region` must be specified; environment-agnostic stacks are rejected.
+- **Concrete `env.region` required.** Region-agnostic stacks are rejected; the account may remain environment-agnostic (twins inherit it and resolve from credentials at deploy time).
 - **Destroy with a wildcard.** CLI patterns match artifact IDs, and destroy does not follow upstream dependencies: use `cdk destroy 'MyApp*'` to remove the twins too. (`cdk deploy MyApp` needs no wildcard.)
 - **Don't remove `regionScope()` calls while deployed.** Each twin keeps a no-op placeholder resource, so removing the *resources* in a region just empties the twin on next deploy. But if you remove the `regionScope()` call itself, the deployed twin stack is orphaned (CDK never deletes removed stacks) — destroy it first.
 - **Dependency cycles across regions fail at synth.** A chain like A(us-east-1) → B(main) → C(us-east-1) is a stack-level cycle even though the resources form no cycle. Restructure (move a resource, or split a real second stack) if you hit `would create a cyclic reference`.

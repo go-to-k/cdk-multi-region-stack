@@ -313,6 +313,8 @@
           "execArgs": [
             "pnpm",
             "update",
+            "@aws-cdk/integ-runner",
+            "@aws-cdk/integ-tests-alpha",
             "@types/jest",
             "@types/node",
             "@typescript-eslint/eslint-plugin",

@@ -27,7 +27,9 @@
     "unbump": "projen unbump",
     "upgrade": "projen upgrade",
     "watch": "projen watch",
-    "projen": "projen"
+    "projen": "projen",
+    "integ": "integ-runner --language typescript",
+    "integ:update": "integ-runner --language typescript --update-on-failed"
   },
   "author": {
     "name": "go-to-k",
@@ -35,6 +37,8 @@
     "organization": false
   },
   "devDependencies": {
+    "@aws-cdk/integ-runner": "^2.202.1",
+    "@aws-cdk/integ-tests-alpha": "2.254.0-alpha.0",
     "@types/jest": "^30.0.0",
     "@types/node": "ts5.9",
     "@typescript-eslint/eslint-plugin": "^8",

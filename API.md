@@ -23,8 +23,9 @@ const cert = new acm.Certificate(stack.regionScope('us-east-1'), 'Cert', { ... }
 new cloudfront.Distribution(stack, 'Dist', { certificates: [cert], ... });
 ```
 
-Deploying/destroying by stack name (`cdk deploy MyApp`) selects the twin
-stacks as well, because CLI patterns also match on stack names.
+`cdk deploy MyApp` deploys the twin stacks as well (they are upstream
+dependencies of the main stack). Destroying does not follow dependencies,
+so use a wildcard: `cdk destroy 'MyApp*'`.
 
 #### Initializers <a name="Initializers" id="cdk-multi-region-stack.MultiRegionStack.Initializer"></a>
 
@@ -1017,9 +1018,9 @@ Whether termination protection is enabled for this stack.
 
 Properties for MultiRegionStack.
 
-Unlike a plain Stack, `env.account` and `env.region` are required to be
-concrete values, because twin stacks for other regions cannot be created
-for an environment-agnostic stack.
+Unlike a plain Stack, `env.region` is required to be a concrete value,
+because twin stacks for other regions cannot be created for a
+region-agnostic stack. The account may remain environment-agnostic.
 
 #### Initializer <a name="Initializer" id="cdk-multi-region-stack.MultiRegionStackProps.Initializer"></a>
 

@@ -1,4 +1,4 @@
-import { App, Aws, Stage } from 'aws-cdk-lib';
+import { App, Aws, Stage, Token } from 'aws-cdk-lib';
 import { Template } from 'aws-cdk-lib/assertions';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
@@ -110,14 +110,20 @@ describe('cross-region references', () => {
 });
 
 describe('validation', () => {
-  test('fails when env is not specified', () => {
-    expect(() => new MultiRegionStack(new App(), 'MyStack', {})).toThrow(/requires a concrete env/);
+  test('fails when env.region is not specified', () => {
+    expect(() => new MultiRegionStack(new App(), 'MyStack', {})).toThrow(
+      /requires a concrete `env\.region`/,
+    );
   });
 
-  test('fails when only region is specified', () => {
-    expect(
-      () => new MultiRegionStack(new App(), 'MyStack', { env: { region: 'ap-northeast-1' } }),
-    ).toThrow(/requires a concrete env/);
+  test('an account-agnostic stack is allowed and the twin stays account-agnostic', () => {
+    const stack = new MultiRegionStack(new App(), 'MyStack', {
+      env: { region: 'ap-northeast-1' },
+    });
+    const use1 = stack.regionScope('us-east-1');
+
+    expect(use1.region).toBe('us-east-1');
+    expect(Token.isUnresolved(use1.account)).toBe(true);
   });
 
   test('fails when regionScope is called with an unresolved token', () => {

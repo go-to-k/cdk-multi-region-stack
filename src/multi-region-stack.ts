@@ -5,9 +5,9 @@ import { Construct } from 'constructs';
 /**
  * Properties for MultiRegionStack.
  *
- * Unlike a plain Stack, `env.account` and `env.region` are required to be
- * concrete values, because twin stacks for other regions cannot be created
- * for an environment-agnostic stack.
+ * Unlike a plain Stack, `env.region` is required to be a concrete value,
+ * because twin stacks for other regions cannot be created for a
+ * region-agnostic stack. The account may remain environment-agnostic.
  */
 export interface MultiRegionStackProps extends StackProps {}
 
@@ -31,8 +31,9 @@ export interface MultiRegionStackProps extends StackProps {}
  * new cloudfront.Distribution(stack, 'Dist', { certificates: [cert], ... });
  * ```
  *
- * Deploying/destroying by stack name (`cdk deploy MyApp`) selects the twin
- * stacks as well, because CLI patterns also match on stack names.
+ * `cdk deploy MyApp` deploys the twin stacks as well (they are upstream
+ * dependencies of the main stack). Destroying does not follow dependencies,
+ * so use a wildcard: `cdk destroy 'MyApp*'`.
  */
 export class MultiRegionStack extends Stack {
   private readonly twins = new Map<string, Stack>();
@@ -42,9 +43,9 @@ export class MultiRegionStack extends Stack {
     super(scope, id, { ...props, crossRegionReferences: true });
     this.inheritedProps = props;
 
-    if (Token.isUnresolved(this.account) || Token.isUnresolved(this.region)) {
+    if (Token.isUnresolved(this.region)) {
       throw new Error(
-        'MultiRegionStack requires a concrete env: specify both `env.account` and `env.region` in props',
+        'MultiRegionStack requires a concrete `env.region`: specify it in props (the account may remain environment-agnostic)',
       );
     }
   }
@@ -75,7 +76,10 @@ export class MultiRegionStack extends Stack {
       const parent = Stage.of(this) ?? this.node.root;
       twin = new Stack(parent as Construct, `${this.node.id}-${region}`, {
         stackName: this.stackName,
-        env: { account: this.account, region },
+        env: {
+          account: Token.isUnresolved(this.account) ? undefined : this.account,
+          region,
+        },
         crossRegionReferences: true,
         description: this.inheritedProps.description,
         terminationProtection: this.inheritedProps.terminationProtection,

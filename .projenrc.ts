@@ -41,7 +41,16 @@ const project = new awscdk.AwsCdkConstructLibrary({
     'acm',
     'waf',
   ],
-  gitignore: ['*.js', '*.d.ts', 'cdk.out/', '.DS_Store'],
+  gitignore: [
+    '*.js',
+    '*.d.ts',
+    'cdk.out/',
+    '.DS_Store',
+    'test/cdk-integ.*.snapshot/**/*',
+    '!test/integ.*.snapshot/**/*',
+  ],
+  // integ-runner is versioned independently since the CLI split; integ-tests-alpha follows aws-cdk-lib
+  devDeps: ['@aws-cdk/integ-runner@^2.202.1', '@aws-cdk/integ-tests-alpha@2.254.0-alpha.0'],
   githubOptions: {
     pullRequestLintOptions: {
       semanticTitleOptions: {
@@ -53,4 +62,6 @@ const project = new awscdk.AwsCdkConstructLibrary({
   workflowNodeVersion: '24',
   npmTrustedPublishing: true,
 });
+project.setScript('integ', 'integ-runner --language typescript');
+project.setScript('integ:update', 'integ-runner --language typescript --update-on-failed');
 project.synth();

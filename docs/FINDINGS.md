@@ -71,11 +71,16 @@
 Phase 1/2 で使った検証スクリプト(scenario-basic/cycle/empty.js, phase2.sh)は
 `~/github/cdk-multi-region-stack.bak-poc/poc/` に退避してある(将来の integ テストの種)。
 
+## 補足(2026-07-09 更新)
+
+- env 要件は「region のみ必須」に緩和(account は agnostic 可 — 本家
+  integ.cross-region-references.ts と同じ形。integ スナップショットにアカウント ID が入らない)
+- integ テスト実装・実デプロイで 1/1 パス(`pnpm integ:update`、約200秒、テスト後自動削除)
+
 ## 残課題
 
-- integ テスト(integ-runner)— PoC の scenario-basic を移植
 - Aspects / Tags のツイン伝播(現状: description / terminationProtection / tags の props のみ継承。
   `Tags.of(stack)` はツインに届かない — README 化 or 実装)
 - 循環エラーの catch & 再ラップは不可能(app.synth() 内で発生)→ README で案内済み
-- 上流 issue 2 件の起票(+ Writer は 1 行修正の PR も可能)
+- 上流 issue 2 件の起票(ドラフト作成済み、投稿は要承認)+ Writer は 1 行修正の PR も可能
 - v2: `resolutionMode: 'concurrent'`

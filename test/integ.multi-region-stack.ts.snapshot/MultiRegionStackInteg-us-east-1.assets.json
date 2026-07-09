@@ -1,0 +1,36 @@
+{
+  "version": "53.0.0",
+  "files": {
+    "31140ce5921f80123008765a60e2192cf1e46ada6affd18ba12754bca501e093": {
+      "displayName": "MultiRegionStackInteg-us-east-1/Custom::CrossRegionExportWriterCustomResourceProvider Code",
+      "source": {
+        "path": "asset.31140ce5921f80123008765a60e2192cf1e46ada6affd18ba12754bca501e093",
+        "packaging": "zip"
+      },
+      "destinations": {
+        "current_account-us-east-1-b630261f": {
+          "bucketName": "cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1",
+          "objectKey": "31140ce5921f80123008765a60e2192cf1e46ada6affd18ba12754bca501e093.zip",
+          "region": "us-east-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-file-publishing-role-${AWS::AccountId}-us-east-1"
+        }
+      }
+    },
+    "7f33d483feafaac620b62759f534a550474c7afae8ae74b4839cb42175c349d2": {
+      "displayName": "MultiRegionStackInteg Template",
+      "source": {
+        "path": "MultiRegionStackInteg-us-east-1.template.json",
+        "packaging": "file"
+      },
+      "destinations": {
+        "current_account-us-east-1-d4970056": {
+          "bucketName": "cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1",
+          "objectKey": "7f33d483feafaac620b62759f534a550474c7afae8ae74b4839cb42175c349d2.json",
+          "region": "us-east-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-file-publishing-role-${AWS::AccountId}-us-east-1"
+        }
+      }
+    }
+  },
+  "dockerImages": {}
+}

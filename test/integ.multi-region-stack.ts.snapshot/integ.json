@@ -1,0 +1,17 @@
+{
+  "version": "53.0.0",
+  "testCases": {
+    "MultiRegionStackTest/DefaultTest": {
+      "stacks": [
+        "MultiRegionStackInteg"
+      ],
+      "regions": [
+        "ap-northeast-1"
+      ],
+      "diffAssets": true,
+      "assertionStack": "MultiRegionStackTest/DefaultTest/DeployAssert",
+      "assertionStackName": "MultiRegionStackTestDefaultTestDeployAssert12E22DBD"
+    }
+  },
+  "minimumCliVersion": "2.1125.0"
+}
