@@ -1,0 +1,61 @@
+{
+  "/MultiRegionStackGroupWeakInteg-us-east-1-Alarms": [
+    {
+      "type": "aws:cdk:warning",
+      "data": "'MultiRegionStackGroupWeakInteg-us-east-1-Alarms' is not a dependency of 'MultiRegionStackGroupWeakInteg', so 'cdk deploy MultiRegionStackGroupWeakInteg' will NOT deploy it (the CLI extends the selection to dependencies only). Deploy with a wildcard: cdk deploy 'MultiRegionStackGroupWeakInteg*' [ack: cdk-multi-region-stack:stackNotDeployedWithMainStack]",
+      "trace": [
+        "Annotations.addMessage (/Users/goto/github/cdk-multi-region-stack/node_modules/.pnpm/aws-cdk-lib@2.254.0_constructs@10.5.1/node_modules/aws-cdk-lib/core/lib/annotations.js:1:2399)",
+        "Annotations.addWarningV2 (/Users/goto/github/cdk-multi-region-stack/node_modules/.pnpm/aws-cdk-lib@2.254.0_constructs@10.5.1/node_modules/aws-cdk-lib/core/lib/annotations.js:1:1087)",
+        "MultiRegionStack.warnAboutStacksNotDeployedWithMain (/Users/goto/github/cdk-multi-region-stack/src/multi-region-stack.ts:246:30)",
+        "Object.validate (/Users/goto/github/cdk-multi-region-stack/src/multi-region-stack.ts:147:14)",
+        "/Users/goto/github/cdk-multi-region-stack/node_modules/.pnpm/constructs@10.5.1/node_modules/constructs/src/construct.ts:424:53",
+        "Array.flatMap (<anonymous>)",
+        "Node.validate (/Users/goto/github/cdk-multi-region-stack/node_modules/.pnpm/constructs@10.5.1/node_modules/constructs/src/construct.ts:424:38)",
+        "/Users/goto/github/cdk-multi-region-stack/node_modules/.pnpm/aws-cdk-lib@2.254.0_constructs@10.5.1/node_modules/aws-cdk-lib/core/lib/private/synthesis.js:2:7301",
+        "visit (/Users/goto/github/cdk-multi-region-stack/node_modules/.pnpm/aws-cdk-lib@2.254.0_constructs@10.5.1/node_modules/aws-cdk-lib/core/lib/private/synthesis.js:4:255)",
+        "visit (/Users/goto/github/cdk-multi-region-stack/node_modules/.pnpm/aws-cdk-lib@2.254.0_constructs@10.5.1/node_modules/aws-cdk-lib/core/lib/private/synthesis.js:4:334)",
+        "validateTree (/Users/goto/github/cdk-multi-region-stack/node_modules/.pnpm/aws-cdk-lib@2.254.0_constructs@10.5.1/node_modules/aws-cdk-lib/core/lib/private/synthesis.js:2:7236)",
+        "synthesize (/Users/goto/github/cdk-multi-region-stack/node_modules/.pnpm/aws-cdk-lib@2.254.0_constructs@10.5.1/node_modules/aws-cdk-lib/core/lib/private/synthesis.js:1:2660)",
+        "App.synth (/Users/goto/github/cdk-multi-region-stack/node_modules/.pnpm/aws-cdk-lib@2.254.0_constructs@10.5.1/node_modules/aws-cdk-lib/core/lib/stage.js:1:3594)",
+        "process.<anonymous> (/Users/goto/github/cdk-multi-region-stack/node_modules/.pnpm/aws-cdk-lib@2.254.0_constructs@10.5.1/node_modules/aws-cdk-lib/core/lib/app.js:1:2166)",
+        "Object.onceWrapper (node:events:631:26)",
+        "process.emit (node:events:509:28)",
+        "process.emit (node:domain:489:12)",
+        "process.emit.sharedData.processEmitHook.installedValue [as emit] (/Users/goto/github/cdk-multi-region-stack/node_modules/.pnpm/@cspotcode+source-map-support@0.8.1/node_modules/@cspotcode/source-map-support/source-map-support.js:745:40)"
+      ]
+    }
+  ],
+  "/MultiRegionStackGroupWeakInteg-us-east-1-Alarms/Placeholder": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "Placeholder"
+    }
+  ],
+  "/MultiRegionStackGroupWeakInteg-us-east-1-Alarms/AlarmStandIn": [
+    {
+      "type": "aws:cdk:analytics:construct",
+      "data": {
+        "parameterName": "*",
+        "stringValue": "*"
+      }
+    }
+  ],
+  "/MultiRegionStackGroupWeakInteg-us-east-1-Alarms/BootstrapVersion": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "BootstrapVersion"
+    }
+  ],
+  "/MultiRegionStackGroupWeakInteg-us-east-1-Alarms/CheckBootstrapVersion": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "CheckBootstrapVersion"
+    }
+  ],
+  "/MultiRegionStackGroupWeakInteg-us-east-1-Alarms/AlarmStandIn/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "AlarmStandIn9FDEB444"
+    }
+  ]
+}
