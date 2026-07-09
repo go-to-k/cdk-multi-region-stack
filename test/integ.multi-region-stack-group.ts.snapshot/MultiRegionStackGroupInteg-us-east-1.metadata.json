@@ -1,0 +1,62 @@
+{
+  "/MultiRegionStackGroupInteg-us-east-1/Placeholder": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "Placeholder"
+    }
+  ],
+  "/MultiRegionStackGroupInteg-us-east-1/CertStandIn": [
+    {
+      "type": "aws:cdk:analytics:construct",
+      "data": "*"
+    }
+  ],
+  "/MultiRegionStackGroupInteg-us-east-1/Custom::CrossRegionExportWriterCustomResourceProvider": [
+    {
+      "type": "aws:cdk:is-custom-resource-handler-customResourceProvider",
+      "data": true
+    }
+  ],
+  "/MultiRegionStackGroupInteg-us-east-1/BootstrapVersion": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "BootstrapVersion"
+    }
+  ],
+  "/MultiRegionStackGroupInteg-us-east-1/CheckBootstrapVersion": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "CheckBootstrapVersion"
+    }
+  ],
+  "/MultiRegionStackGroupInteg-us-east-1/CertStandIn/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "CertStandInA885FAAE"
+    }
+  ],
+  "/MultiRegionStackGroupInteg-us-east-1/ExportsWriterapnortheast12334E1B8/Resource": [
+    {
+      "type": "aws:cdk:analytics:construct",
+      "data": "*"
+    }
+  ],
+  "/MultiRegionStackGroupInteg-us-east-1/Custom::CrossRegionExportWriterCustomResourceProvider/Role": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "CustomCrossRegionExportWriterCustomResourceProviderRoleC951B1E1"
+    }
+  ],
+  "/MultiRegionStackGroupInteg-us-east-1/Custom::CrossRegionExportWriterCustomResourceProvider/Handler": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "CustomCrossRegionExportWriterCustomResourceProviderHandlerD8786E8A"
+    }
+  ],
+  "/MultiRegionStackGroupInteg-us-east-1/ExportsWriterapnortheast12334E1B8/Resource/Default": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ExportsWriterapnortheast12334E1B81D43DF3F"
+    }
+  ]
+}

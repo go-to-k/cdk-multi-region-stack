@@ -1,0 +1,36 @@
+{
+  "version": "53.0.0",
+  "files": {
+    "f06f7035054cb2aada184c7c251ec5cb31fb6b5e975284939b9ff097603ea769": {
+      "displayName": "MultiRegionStackGroupInteg-us-east-1-Alarms/Custom::CrossRegionExportReaderCustomResourceProvider Code",
+      "source": {
+        "path": "asset.f06f7035054cb2aada184c7c251ec5cb31fb6b5e975284939b9ff097603ea769",
+        "packaging": "zip"
+      },
+      "destinations": {
+        "current_account-us-east-1-1ed297f2": {
+          "bucketName": "cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1",
+          "objectKey": "f06f7035054cb2aada184c7c251ec5cb31fb6b5e975284939b9ff097603ea769.zip",
+          "region": "us-east-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-file-publishing-role-${AWS::AccountId}-us-east-1"
+        }
+      }
+    },
+    "2334a844b12f793d1645c574bf1b4e97888ff54744880f98437d465992d9ae40": {
+      "displayName": "MultiRegionStackGroupInteg-Alarms Template",
+      "source": {
+        "path": "MultiRegionStackGroupInteg-us-east-1-Alarms.template.json",
+        "packaging": "file"
+      },
+      "destinations": {
+        "current_account-us-east-1-29d3a8cf": {
+          "bucketName": "cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1",
+          "objectKey": "2334a844b12f793d1645c574bf1b4e97888ff54744880f98437d465992d9ae40.json",
+          "region": "us-east-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-file-publishing-role-${AWS::AccountId}-us-east-1"
+        }
+      }
+    }
+  },
+  "dockerImages": {}
+}
