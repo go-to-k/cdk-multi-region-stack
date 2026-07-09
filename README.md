@@ -82,6 +82,33 @@ At synth time this produces one CloudFormation stack per region, all with the **
 - Because the main stack references twin values, the CDK CLI treats twins as upstream dependencies: **`cdk deploy MyApp` deploys the twins automatically**, twins first.
 - Values crossing regions use CDK's export machinery. The reference strength (`strong` / `weak` / `both`) follows the `@aws-cdk/core:defaultCrossStackReferences` context flag (aws-cdk-lib >= 2.254.0). See [reference strength](https://github.com/aws/aws-cdk/blob/main/packages/aws-cdk-lib/README.md#reference-strength).
 
+## Conditionally skipping a region
+
+`regionScope(region)` creates the twin **lazily** — only on the first call for that region. So skipping a whole region is just a plain `if`: don't call `regionScope()` for it, and its twin is never synthesized. A common case is dropping the WAF WebACL (and therefore the `us-east-1` twin) in cheaper environments:
+
+```ts
+const skipUsEast1 = this.node.tryGetContext('ENV') === 'dev';
+
+// Not calling regionScope('us-east-1') means no us-east-1 twin at all
+let webAcl: wafv2.CfnWebACL | undefined;
+if (!skipUsEast1) {
+  webAcl = new wafv2.CfnWebACL(this.regionScope('us-east-1'), 'WebAcl', {
+    scope: 'CLOUDFRONT',
+    // ...
+  });
+}
+
+new cloudfront.Distribution(this, 'Dist', {
+  defaultBehavior: { origin },
+  webAclId: webAcl?.attrArn, // undefined when skipped: no WAF, no cross-region reference
+  // ...
+});
+```
+
+When the region is skipped, no cross-region reference is emitted and the main stack deploys on its own.
+
+This is safe for a fresh deployment, or when environments use different stack names or accounts. **But if a twin was already deployed and you then flip the context to skip it, the twin is orphaned** — CDK never deletes a stack that disappeared from the app (see the caveat below). In that case destroy it first: `cdk destroy 'MyApp-us-east-1'`.
+
 ## Requirements and caveats
 
 - **Concrete `env.region` required.** Region-agnostic stacks are rejected; the account may remain environment-agnostic (twins inherit it and resolve from credentials at deploy time).
