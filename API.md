@@ -20,12 +20,22 @@ const stack = new MultiRegionStack(app, 'MyApp', {
   env: { account: '123456789012', region: 'ap-northeast-1' },
 });
 const cert = new acm.Certificate(stack.regionScope('us-east-1'), 'Cert', { ... });
-new cloudfront.Distribution(stack, 'Dist', { certificates: [cert], ... });
+new cloudfront.Distribution(stack, 'Dist', { certificate: cert, ... });
+```
+
+When a resource must live in another region AND reference the main stack
+(e.g. a CloudWatch alarm on CloudFront metrics), put it in a "group" — an
+additional stack in that region — to avoid a cyclic reference:
+
+```ts
+new cw.Alarm(stack.regionScope('us-east-1', { group: 'Alarms' }), 'Errors', { ... });
 ```
 
 `cdk deploy MyApp` deploys the twin stacks as well (they are upstream
-dependencies of the main stack). Destroying does not follow dependencies,
-so use a wildcard: `cdk destroy 'MyApp*'`.
+dependencies of the main stack). Stacks that are NOT dependencies of the
+main stack (such as groups referencing the main stack) are not included:
+use a wildcard, `cdk deploy 'MyApp*'`. Destroying does not follow
+dependencies either, so use a wildcard: `cdk destroy 'MyApp*'`.
 
 #### Initializers <a name="Initializers" id="cdk-multi-region-stack.MultiRegionStack.Initializer"></a>
 
@@ -537,7 +547,7 @@ Convert an object, potentially containing tokens, to a YAML string.
 ##### `regionScope` <a name="regionScope" id="cdk-multi-region-stack.MultiRegionStack.regionScope"></a>
 
 ```typescript
-public regionScope(region: string): Stack
+public regionScope(region: string, options?: RegionScopeOptions): Stack
 ```
 
 Returns a scope belonging to the twin stack for the given region.
@@ -550,11 +560,25 @@ The twin stack is created lazily on first call for a region:
 Calling this with the stack's own region returns the stack itself.
 Calling it twice with the same region returns the same twin.
 
+With `options.group`, an additional stack named `<stackName>-<group>`
+is created in the region instead of the default twin — use this when
+resources in the region must reference the main stack (see
+`RegionScopeOptions.group`). A group in the stack's own region creates
+a sibling stack in the main region.
+
 ###### `region`<sup>Required</sup> <a name="region" id="cdk-multi-region-stack.MultiRegionStack.regionScope.parameter.region"></a>
 
 - *Type:* string
 
 The region in which constructs created in this scope will be provisioned (e.g. `us-east-1`).
+
+---
+
+###### `options`<sup>Optional</sup> <a name="options" id="cdk-multi-region-stack.MultiRegionStack.regionScope.parameter.options"></a>
+
+- *Type:* <a href="#cdk-multi-region-stack.RegionScopeOptions">RegionScopeOptions</a>
+
+Options, e.g. a `group` for an additional stack in the region.
 
 ---
 
@@ -1290,6 +1314,59 @@ public readonly terminationProtection: boolean;
 - *Default:* false
 
 Whether to enable termination protection for this stack.
+
+---
+
+### RegionScopeOptions <a name="RegionScopeOptions" id="cdk-multi-region-stack.RegionScopeOptions"></a>
+
+Options for `MultiRegionStack.regionScope()`.
+
+#### Initializer <a name="Initializer" id="cdk-multi-region-stack.RegionScopeOptions.Initializer"></a>
+
+```typescript
+import { RegionScopeOptions } from 'cdk-multi-region-stack'
+
+const regionScopeOptions: RegionScopeOptions = { ... }
+```
+
+#### Properties <a name="Properties" id="Properties"></a>
+
+| **Name** | **Type** | **Description** |
+| --- | --- | --- |
+| <code><a href="#cdk-multi-region-stack.RegionScopeOptions.property.group">group</a></code> | <code>string</code> | Name of an additional stack ("group") in the region. |
+
+---
+
+##### `group`<sup>Optional</sup> <a name="group" id="cdk-multi-region-stack.RegionScopeOptions.property.group"></a>
+
+```typescript
+public readonly group: string;
+```
+
+- *Type:* string
+- *Default:* the region's default twin stack (or the stack itself for its own region)
+
+Name of an additional stack ("group") in the region.
+
+By default a region has a single stack (the "twin", sharing the main
+stack's name). Some resources cannot live in that stack: a CloudWatch
+alarm on CloudFront metrics must be in us-east-1 AND references the
+distribution in the main stack, while the main stack already references
+the ACM certificate in us-east-1 — putting both directions in one stack
+is a cyclic reference. A group is a separate stack in the same region
+that breaks the cycle; the deploy order is derived automatically from
+the references.
+
+The group name becomes part of the stack name
+(`<stackName>-<group>`), so it must start with a letter and contain
+only letters, digits and hyphens. The same `(region, group)` pair
+always returns the same stack. Groups in the stack's own region are
+allowed and create a sibling stack in the main region.
+
+Note: a stack that is not a dependency of the main stack (e.g. a group
+whose resources reference the main stack) is NOT deployed by
+`cdk deploy <MainStack>` — deploy with a wildcard. A warning is
+emitted at synth time for such stacks.
 
 ---
 
