@@ -2,7 +2,19 @@
 
 A CDK `Stack` that can place some of its resources in **other regions**, while everything stays in **one logical stack** in your CDK app.
 
-Typical use case: your application lives in `ap-northeast-1`, but the ACM certificate and WAF WebACL for your CloudFront distribution must live in `us-east-1`. Today you split them into separate stacks by hand. With `MultiRegionStack` you write them as one stack:
+Typical use case: your application lives in `ap-northeast-1`, but the ACM certificate and WAF WebACL for your CloudFront distribution must live in `us-east-1`. Today you split them into separate stacks by hand. With `MultiRegionStack` you write them as one stack.
+
+## Usage
+
+### Install
+
+```sh
+npm install cdk-multi-region-stack
+```
+
+### CDK Code
+
+The following code is a minimal example: the ACM certificate lives in `us-east-1` via `stack.regionScope('us-east-1')`, while the CloudFront distribution lives in the stack's own region (`ap-northeast-1`) and references that certificate across regions.
 
 ```ts
 import { MultiRegionStack } from 'cdk-multi-region-stack';
@@ -24,8 +36,6 @@ new cloudfront.Distribution(stack, 'Dist', {
   certificate: cert,
 });
 ```
-
-At synth time this produces one CloudFormation stack per region, all with the **same stack name**. References that cross regions are wired through CDK's built-in cross-region reference machinery (`crossRegionReferences: true` is enabled automatically).
 
 You can also `extends MultiRegionStack` to keep the multi-region wiring inside your own stack class. Inside the class, `this` is the main-region scope and `this.regionScope('us-east-1')` is the other-region scope:
 
@@ -65,6 +75,8 @@ new MyAppStack(app, 'MyApp', {
 ```
 
 ## How it works
+
+At synth time this produces one CloudFormation stack per region, all with the **same stack name**, wired through CDK's built-in cross-region reference machinery (`crossRegionReferences: true` is enabled automatically).
 
 - `stack.regionScope(region)` lazily creates a "twin" `Stack` — a sibling of your stack (under the same `App`/`Stage`) with the same `stackName`, targeting the same account in the given region. Constructs created in that scope deploy to that region.
 - Because the main stack references twin values, the CDK CLI treats twins as upstream dependencies: **`cdk deploy MyApp` deploys the twins automatically**, twins first.
