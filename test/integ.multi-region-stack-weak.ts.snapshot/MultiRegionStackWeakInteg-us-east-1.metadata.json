@@ -1,0 +1,38 @@
+{
+  "/MultiRegionStackWeakInteg-us-east-1/Placeholder": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "Placeholder"
+    }
+  ],
+  "/MultiRegionStackWeakInteg-us-east-1/GlobalTopic": [
+    {
+      "type": "aws:cdk:analytics:construct",
+      "data": "*"
+    }
+  ],
+  "/MultiRegionStackWeakInteg-us-east-1/BootstrapVersion": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "BootstrapVersion"
+    }
+  ],
+  "/MultiRegionStackWeakInteg-us-east-1/CheckBootstrapVersion": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "CheckBootstrapVersion"
+    }
+  ],
+  "/MultiRegionStackWeakInteg-us-east-1/GlobalTopic/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "GlobalTopic32670893"
+    }
+  ],
+  "/MultiRegionStackWeakInteg-us-east-1/Publish/Output{\"Ref\":\"GlobalTopic32670893\"}": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "PublishOutputRefGlobalTopic32670893BE4326FF"
+    }
+  ]
+}
