@@ -41,9 +41,17 @@ At synth time this produces one CloudFormation stack per region, all with the **
 - **Dependency cycles across regions fail at synth.** A chain like A(us-east-1) → B(main) → C(us-east-1) is a stack-level cycle even though the resources form no cycle. Restructure (move a resource, or split a real second stack) if you hit `would create a cyclic reference`.
 - **Region moves are replacements.** Moving a construct between region scopes moves it to a different stack: the resource is destroyed and recreated.
 
-### Upstream issues you should know about (as of aws-cdk-lib 2.261.0)
+### Replacing a cross-region-referenced resource does not auto-propagate
 
-- With **strong** references, replacing a producer resource (same logical ID, new ARN) does **not** propagate the new value: the cross-region export writer skips value-only updates, so consumers keep referencing the old (deleted) resource. Weak references resolve at consumer deploy time via `Fn::GetStackOutput` and don't have the writer half of this problem, but any mode requires a consumer-side deployment to pick up new values.
-- The documented strong-reference guarantee "the producing stack cannot be deleted while consumers exist" is currently **not enforced** (the in-use validation was removed in aws-cdk#38059).
+This is the sharpest edge, and it is a limitation of CDK's cross-region reference machinery itself (you hit the same thing hand-splitting stacks with `crossRegionReferences`), not something this library adds. When a resource in one region is **replaced but keeps its logical ID** (a property change that forces replacement — new physical name / ARN), the consuming region does **not** automatically pick up the new value in any reference mode, verified end-to-end:
+
+- **strong** (default): the cross-region export writer skips value-only updates (same key, new value), so the SSM export parameter keeps the old ARN and the consumer keeps referencing the deleted resource. This is a bug and is **fixable upstream** — a one-line writer fix restores propagation, because the reader's `{{resolve:ssm:...}}` dynamic reference re-resolves and forces a consumer changeset (verified by manually correcting the parameter). See [issue #1](https://github.com/go-to-k/cdk-multi-region-stack/issues/1).
+- **weak**: the twin's `Output` correctly updates to the new ARN, but the consumer template embeds `Fn::GetStackOutput` literally and is byte-identical across the replacement, so CloudFormation does a **no-op** on the consumer (`SampleStack (no changes)`) and never re-resolves it. This is inherent to the weak mechanism, not a simple bug — weak is **worse** here than strong-once-fixed.
+
+Workarounds if you must replace a referenced resource: rename the construct (new logical ID → the reference expression changes → propagates), or force a consumer-side change, or split into two deployments. In the flagship use case (ACM cert / WAF for CloudFront) these replacements are rare, and cert/WebACL usually can't be silently deleted while attached, so the failure tends to surface loudly rather than silently.
+
+### The strong-reference deletion guarantee is not enforced (as of aws-cdk-lib 2.261.0)
+
+- The documented strong-reference guarantee "the producing stack cannot be deleted while consumers exist" is currently **not enforced** (the in-use validation was removed in aws-cdk#38059). Deleting a twin alone succeeds and deletes the export parameters, breaking the consumer's next deploy. Use `cdk destroy 'MyApp*'` (destroy everything together) rather than destroying individual twins. See [issue #2](https://github.com/go-to-k/cdk-multi-region-stack/issues/2).
 
 See [docs/FINDINGS.md](./docs/FINDINGS.md) for the full verification log behind these notes.

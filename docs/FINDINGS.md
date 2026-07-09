@@ -66,6 +66,27 @@
 **消費側が生きたままの生産側 destroy が成功し、export パラメータも削除される**(実機で確認)。
 以後の消費側デプロイは `{{resolve:ssm}}` の解決に失敗するはず。
 
+### 3. weak モードの置換非伝播(バグではなく機構固有の限界)— 2026-07-09 追検証
+
+当初「置換があるなら weak にすれば追従する」と推測したが、**実機で否定された**。
+weak モードでツイン側 Topic を置換(topicName 変更、論理 ID 据え置き)して再デプロイした結果:
+
+- ツインの `Output PublishOutputRefGlobalTopic...` は**新 ARN(mrs-global-v2)に正しく更新**された
+- しかし消費側は **`SampleStack (no changes)`(デプロイ 0 秒の完全 no-op)** となり、旧 ARN のまま
+- 原因: 消費側テンプレートは `Fn::GetStackOutput{StackName, Region, OutputName}` を**リテラル埋め込み**
+  しており、OutputName は論理 ID 由来で置換前後不変 → テンプレートがバイト一致 → CFn が changeset を
+  作らず、GetStackOutput が再解決されない
+
+**strong と weak の非対称性**が判明した:
+- strong: 消費側の Reader プロパティが `{{resolve:ssm}}` 動的参照。SSM 値が変われば changeset に差分が出て
+  Reader が再実行される。**だから Writer さえ直せば伝播する**(バグ①の修正で解決可能)
+- weak: `Fn::GetStackOutput` は動的参照のような「値が変われば changeset に差分」の性質を持たず、
+  同論理 ID 置換では消費側が no-op になる。**単純な修正では直らない機構固有の限界**
+
+結論: 置換伝播について現行リリースは strong / weak とも壊れているが、**strong は上流修正で直る一方、
+weak は直らない**。当初の「置換なら weak 推奨」は誤り。回避策は論理 ID 変更(構築子リネーム)/
+消費側強制変更 / 2回デプロイ。README に反映済み。
+
 ## PoC の所在
 
 Phase 1/2 で使った検証スクリプト(scenario-basic/cycle/empty.js, phase2.sh)は
@@ -76,6 +97,8 @@ Phase 1/2 で使った検証スクリプト(scenario-basic/cycle/empty.js, phase
 - env 要件は「region のみ必須」に緩和(account は agnostic 可 — 本家
   integ.cross-region-references.ts と同じ形。integ スナップショットにアカウント ID が入らない)
 - integ テスト実装・実デプロイで 1/1 パス(`pnpm integ:update`、約200秒、テスト後自動削除)
+- weak モード置換検証(weak-replace.sh)を追実施 → 上流問題 #3(機構固有の限界)を発見。
+  検証後アカウントは完全クリーン化済み
 
 ## 残課題
 
