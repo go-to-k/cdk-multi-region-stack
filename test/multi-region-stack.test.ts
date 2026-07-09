@@ -1,5 +1,5 @@
 import { App, Aws, Stage, Token } from 'aws-cdk-lib';
-import { Template } from 'aws-cdk-lib/assertions';
+import { Annotations, Match, Template } from 'aws-cdk-lib/assertions';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { MultiRegionStack } from '../src';
@@ -109,6 +109,118 @@ describe('cross-region references', () => {
   });
 });
 
+describe('groups', () => {
+  // The flagship shape: cert (twin) <- dist (main) <- alarm (group),
+  // wired purely through references, without any addDependency call.
+  const createGroupedStacks = (app: App) => {
+    const stack = new MultiRegionStack(app, 'MyStack', { env });
+    const use1 = stack.regionScope('us-east-1');
+    const cert = new sns.Topic(use1, 'Cert');
+    const dist = new ssm.StringParameter(stack, 'Dist', { stringValue: cert.topicArn });
+    const alarms = stack.regionScope('us-east-1', { group: 'Alarms' });
+    new ssm.StringParameter(alarms, 'Alarm', { stringValue: dist.parameterName });
+    return { stack, use1, alarms };
+  };
+
+  test('snapshot: main, twin and group templates', () => {
+    const { stack, use1, alarms } = createGroupedStacks(new App());
+    expect(Template.fromStack(stack).toJSON()).toMatchSnapshot('main-grouped');
+    expect(Template.fromStack(use1).toJSON()).toMatchSnapshot('twin-grouped');
+    expect(Template.fromStack(alarms).toJSON()).toMatchSnapshot('group');
+  });
+
+  test('same (region, group) returns the same stack, different groups return different stacks', () => {
+    const stack = new MultiRegionStack(new App(), 'MyStack', { env });
+    const a = stack.regionScope('us-east-1', { group: 'A' });
+
+    expect(stack.regionScope('us-east-1', { group: 'A' })).toBe(a);
+    expect(stack.regionScope('us-east-1', { group: 'B' })).not.toBe(a);
+    expect(stack.regionScope('us-east-1')).not.toBe(a);
+  });
+
+  test('group stack is a sibling named `<stackName>-<group>`; the default twin keeps the shared name', () => {
+    const app = new App();
+    const stack = new MultiRegionStack(app, 'MyStack', { env });
+    const group = stack.regionScope('us-east-1', { group: 'Alarms' });
+
+    expect(group.node.scope).toBe(app);
+    expect(group.stackName).toBe(`${stack.stackName}-Alarms`);
+    expect(group.account).toBe(stack.account);
+    expect(group.region).toBe('us-east-1');
+    expect(stack.regionScope('us-east-1').stackName).toBe(stack.stackName);
+  });
+
+  test('a group in the stack own region creates a sibling stack in the main region', () => {
+    const stack = new MultiRegionStack(new App(), 'MyStack', { env });
+    const group = stack.regionScope('ap-northeast-1', { group: 'Extra' });
+
+    expect(group).not.toBe(stack);
+    expect(group.region).toBe('ap-northeast-1');
+    expect(group.stackName).toBe(`${stack.stackName}-Extra`);
+  });
+
+  test('group contains a placeholder and inherits description, terminationProtection and tags', () => {
+    const stack = new MultiRegionStack(new App(), 'MyStack', {
+      env,
+      description: 'my description',
+      terminationProtection: true,
+      tags: { CostCenter: 'X' },
+    });
+    const group = stack.regionScope('us-east-1', { group: 'Alarms' });
+
+    Template.fromStack(group).resourceCountIs('AWS::CloudFormation::WaitConditionHandle', 1);
+    expect(Template.fromStack(group).toJSON().Description).toBe('my description');
+    expect(group.terminationProtection).toBe(true);
+    expect(group.tags.tagValues()).toEqual({ CostCenter: 'X' });
+  });
+
+  test('the cert/dist/alarm shape synthesizes without a cycle, deploy order derived from references', () => {
+    const app = new App();
+    const { stack, use1, alarms } = createGroupedStacks(app);
+    const asm = app.synth();
+
+    const mainDeps = asm.getStackArtifact(stack.artifactId).dependencies.map((d) => d.id);
+    const groupDeps = asm.getStackArtifact(alarms.artifactId).dependencies.map((d) => d.id);
+    expect(mainDeps).toContain(use1.artifactId);
+    expect(groupDeps).toContain(stack.artifactId);
+  });
+
+  test('both reference directions in one twin fail with guidance to use a group', () => {
+    const app = new App();
+    const stack = new MultiRegionStack(app, 'MyStack', { env });
+    const use1 = stack.regionScope('us-east-1');
+    const cert = new sns.Topic(use1, 'Cert');
+    const dist = new ssm.StringParameter(stack, 'Dist', { stringValue: cert.topicArn });
+    new ssm.StringParameter(use1, 'Alarm', { stringValue: dist.parameterName });
+
+    let error: Error | undefined;
+    try {
+      app.synth();
+    } catch (e) {
+      error = e as Error;
+    }
+    expect(error?.message).toMatch(/cyclic reference/);
+    expect(error?.message).toMatch(/regionScope\('us-east-1', \{ group: 'Alarms' \}\)/);
+  });
+
+  test('a group that is not a dependency of the main stack warns that plain deploy skips it', () => {
+    const { alarms } = createGroupedStacks(new App());
+    Annotations.fromStack(alarms).hasWarning('*', Match.stringLikeRegexp('.*will NOT deploy it.*'));
+  });
+
+  test('a group referenced by the main stack is upstream of it and does not warn', () => {
+    const stack = new MultiRegionStack(new App(), 'MyStack', { env });
+    const group = stack.regionScope('us-east-1', { group: 'Waf' });
+    const topic = new sns.Topic(group, 'Topic');
+    new ssm.StringParameter(stack, 'Param', { stringValue: topic.topicArn });
+
+    Annotations.fromStack(group).hasNoWarning(
+      '*',
+      Match.stringLikeRegexp('.*will NOT deploy it.*'),
+    );
+  });
+});
+
 describe('validation', () => {
   test('fails when env.region is not specified', () => {
     expect(() => new MultiRegionStack(new App(), 'MyStack', {})).toThrow(
@@ -129,5 +241,25 @@ describe('validation', () => {
   test('fails when regionScope is called with an unresolved token', () => {
     const stack = new MultiRegionStack(new App(), 'MyStack', { env });
     expect(() => stack.regionScope(Aws.REGION)).toThrow(/concrete region/);
+  });
+
+  test.each(['1abc', 'a_b', 'has space', '-abc', ''])(
+    'fails for invalid group name %j',
+    (group) => {
+      const stack = new MultiRegionStack(new App(), 'MyStack', { env });
+      expect(() => stack.regionScope('us-east-1', { group })).toThrow(
+        /group must start with a letter/,
+      );
+    },
+  );
+
+  test('fails when the group makes the stack name exceed 128 characters', () => {
+    const stack = new MultiRegionStack(new App(), 'MyStack', {
+      env,
+      stackName: 'a'.repeat(120),
+    });
+    expect(() => stack.regionScope('us-east-1', { group: 'b'.repeat(20) })).toThrow(
+      /exceed 128 characters/,
+    );
   });
 });

@@ -75,6 +75,43 @@ new MyAppStack(app, 'MyApp', {
 });
 ```
 
+## Resources that reference the main stack (groups)
+
+Some resources must live in another region AND reference the main stack. The flagship example is a CloudWatch alarm on CloudFront metrics: the metrics only exist in `us-east-1`, and the alarm references the distribution ID in the main stack. Putting the alarm in the same twin as the ACM certificate makes references flow in **both directions** between the two stacks — a stack-level cyclic reference, rejected at synth.
+
+Put such resources in a **group**: an additional stack in that region.
+
+```ts
+// Lives in us-east-1, deploys BEFORE the main stack (the main stack references it)
+const cert = new acm.Certificate(this.regionScope('us-east-1'), 'Cert', { ... });
+
+const dist = new cloudfront.Distribution(this, 'Dist', {
+  defaultBehavior: { origin },
+  certificate: cert,
+  // ...
+});
+
+// Lives in us-east-1 too, deploys AFTER the main stack (it references the main stack)
+new cw.Alarm(this.regionScope('us-east-1', { group: 'Alarms' }), 'Errors5xx', {
+  metric: new cw.Metric({
+    namespace: 'AWS/CloudFront',
+    metricName: '5xxErrorRate',
+    dimensionsMap: { DistributionId: dist.distributionId, Region: 'Global' },
+  }),
+  threshold: 1,
+  evaluationPeriods: 1,
+});
+```
+
+This synthesizes a linear chain of three stacks — twin (`MyApp` in us-east-1) → main (`MyApp`) → group (`MyApp-Alarms` in us-east-1) — and the deploy order is derived automatically from the references; no `addDependency` calls needed. If you hit the cyclic reference by putting both directions in one twin, the error message names the fix.
+
+Details:
+
+- The group's stack name is `<stackName>-<group>` — the same name in every region, extending the default twin's shared-name convention. The group name must start with a letter and contain only letters, digits and hyphens (it becomes part of the stack name).
+- The same `(region, group)` pair always returns the same stack. A group in the stack's own region is allowed and creates a second main-region stack.
+- **`cdk deploy MyApp` does NOT deploy groups that reference the main stack.** The CLI extends the selection to *dependencies* only, and such groups are dependents (downstream). Deploy with a wildcard: `cdk deploy 'MyApp*'`. A synth-time warning reminds you when a group (or twin) is not a dependency of the main stack.
+- Removing a `regionScope(region, { group })` call orphans the deployed group stack, same as removing a `regionScope()` call (see the caveats below).
+
 ## How it works
 
 At synth time this produces one CloudFormation stack per region, all with the **same stack name**, wired through CDK's built-in cross-region reference machinery (`crossRegionReferences: true` is enabled automatically).
@@ -113,9 +150,9 @@ This is safe for a fresh deployment, or when environments use different stack na
 ## Requirements and caveats
 
 - **Concrete `env.region` required.** Region-agnostic stacks are rejected; the account may remain environment-agnostic (twins inherit it and resolve from credentials at deploy time).
-- **Destroy with a wildcard.** CLI patterns match artifact IDs, and destroy does not follow upstream dependencies: use `cdk destroy 'MyApp*'` to remove the twins too. (`cdk deploy MyApp` needs no wildcard.)
+- **Destroy with a wildcard.** CLI patterns match artifact IDs, and destroy does not follow upstream dependencies: use `cdk destroy 'MyApp*'` to remove the twins too. (`cdk deploy MyApp` needs no wildcard — unless you use [groups](#resources-that-reference-the-main-stack-groups) that reference the main stack, which are downstream and need `cdk deploy 'MyApp*'` as well.)
 - **Don't remove `regionScope()` calls while deployed.** Each twin keeps a no-op placeholder resource, so removing the *resources* in a region just empties the twin on next deploy. But if you remove the `regionScope()` call itself, the deployed twin stack is orphaned (CDK never deletes removed stacks) — destroy it first.
-- **Dependency cycles across regions fail at synth.** A chain like A(us-east-1) → B(main) → C(us-east-1) is a stack-level cycle even though the resources form no cycle. Restructure (move a resource, or split a real second stack) if you hit `would create a cyclic reference`.
+- **Dependency cycles across regions fail at synth.** A chain like A(us-east-1) → B(main) → C(us-east-1) is a stack-level cycle even though the resources form no cycle, because both reference directions land in the same pair of stacks. Put the resources that reference the main stack in a [group](#resources-that-reference-the-main-stack-groups) — the `would create a cyclic reference` error message guides you to the fix.
 - **Region moves are replacements.** Moving a construct between region scopes moves it to a different stack: the resource is destroyed and recreated.
 
 ### Replacing a cross-region-referenced resource does not auto-propagate
