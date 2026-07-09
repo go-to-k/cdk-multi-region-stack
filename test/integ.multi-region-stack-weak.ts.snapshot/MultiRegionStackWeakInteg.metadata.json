@@ -1,0 +1,29 @@
+{
+  "/MultiRegionStackWeakInteg/Consumer": [
+    {
+      "type": "aws:cdk:analytics:construct",
+      "data": {
+        "parameterName": "*",
+        "stringValue": "*"
+      }
+    }
+  ],
+  "/MultiRegionStackWeakInteg/BootstrapVersion": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "BootstrapVersion"
+    }
+  ],
+  "/MultiRegionStackWeakInteg/CheckBootstrapVersion": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "CheckBootstrapVersion"
+    }
+  ],
+  "/MultiRegionStackWeakInteg/Consumer/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "Consumer8D6BE417"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "version": "53.0.0",
+  "files": {
+    "22165849bf7017d27e642bf15cd554f6ecf11602cec3ebddd83e583d1989e767": {
+      "displayName": "MultiRegionStackWeakInteg Template",
+      "source": {
+        "path": "MultiRegionStackWeakInteg-us-east-1.template.json",
+        "packaging": "file"
+      },
+      "destinations": {
+        "current_account-us-east-1-0ddd0d73": {
+          "bucketName": "cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1",
+          "objectKey": "22165849bf7017d27e642bf15cd554f6ecf11602cec3ebddd83e583d1989e767.json",
+          "region": "us-east-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-file-publishing-role-${AWS::AccountId}-us-east-1"
+        }
+      }
+    }
+  },
+  "dockerImages": {}
+}

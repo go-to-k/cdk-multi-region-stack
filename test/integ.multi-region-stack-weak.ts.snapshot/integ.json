@@ -1,0 +1,17 @@
+{
+  "version": "53.0.0",
+  "testCases": {
+    "MultiRegionStackWeakTest/DefaultTest": {
+      "stacks": [
+        "MultiRegionStackWeakInteg"
+      ],
+      "regions": [
+        "ap-northeast-1"
+      ],
+      "diffAssets": true,
+      "assertionStack": "MultiRegionStackWeakTest/DefaultTest/DeployAssert",
+      "assertionStackName": "MultiRegionStackWeakTestDefaultTestDeployAssert395291BD"
+    }
+  },
+  "minimumCliVersion": "2.1125.0"
+}
