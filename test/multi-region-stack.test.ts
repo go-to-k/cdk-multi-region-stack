@@ -201,11 +201,24 @@ describe('groups', () => {
     }
     expect(error?.message).toMatch(/cyclic reference/);
     expect(error?.message).toMatch(/regionScope\('us-east-1', \{ group: 'Alarms' \}\)/);
+    // the message is appended to CDK's own error, not wrapped in a new one,
+    // so the typed ValidationError (name: the DependencyCycle error code)
+    // that the CLI and tooling key on is preserved
+    expect(error?.name).toBe('DependencyCycle');
   });
 
   test('a group that is not a dependency of the main stack warns that plain deploy skips it', () => {
     const { alarms } = createGroupedStacks(new App());
     Annotations.fromStack(alarms).hasWarning('*', Match.stringLikeRegexp('.*will NOT deploy it.*'));
+  });
+
+  test('the deploy warning is emitted once even when the app is synthesized twice', () => {
+    const app = new App();
+    const { alarms } = createGroupedStacks(app);
+    app.synth();
+    app.synth({ force: true });
+    const warnings = alarms.node.metadata.filter((m) => m.type === 'aws:cdk:warning');
+    expect(warnings).toHaveLength(1);
   });
 
   test('a group referenced by the main stack is upstream of it and does not warn', () => {

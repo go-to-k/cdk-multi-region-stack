@@ -109,7 +109,7 @@ Details:
 
 - The group's stack name is `<stackName>-<group>` — the same name in every region, extending the default twin's shared-name convention. The group name must start with a letter and contain only letters, digits and hyphens (it becomes part of the stack name).
 - The same `(region, group)` pair always returns the same stack. A group in the stack's own region is allowed and creates a second main-region stack.
-- **`cdk deploy MyApp` does NOT deploy groups that reference the main stack.** The CLI extends the selection to *dependencies* only, and such groups are dependents (downstream). Deploy with a wildcard: `cdk deploy 'MyApp*'`. A synth-time warning reminds you when a group (or twin) is not a dependency of the main stack.
+- **`cdk deploy MyApp` does NOT deploy groups that reference the main stack.** The CLI extends the selection to *dependencies* only, and such groups are dependents (downstream). Deploy with a wildcard: `cdk deploy 'MyApp*'`. A synth-time warning reminds you when a group (or twin) is not a dependency of the main stack; if the layout is intentional, acknowledge it with `Annotations.of(theStack).acknowledgeWarning('cdk-multi-region-stack:stackNotDeployedWithMainStack')`.
 - Removing a `regionScope(region, { group })` call orphans the deployed group stack, same as removing a `regionScope()` call (see the caveats below).
 
 ## How it works

@@ -20,7 +20,7 @@ const stack = new MultiRegionStack(app, 'MyApp', {
   env: { account: '123456789012', region: 'ap-northeast-1' },
 });
 const cert = new acm.Certificate(stack.regionScope('us-east-1'), 'Cert', { ... });
-new cloudfront.Distribution(stack, 'Dist', { certificates: [cert], ... });
+new cloudfront.Distribution(stack, 'Dist', { certificate: cert, ... });
 ```
 
 When a resource must live in another region AND reference the main stack

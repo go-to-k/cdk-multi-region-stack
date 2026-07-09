@@ -45,6 +45,51 @@ export interface RegionScopeOptions {
 
 const GROUP_NAME_PATTERN = /^[A-Za-z][A-Za-z0-9-]*$/;
 const MAX_STACK_NAME_LENGTH = 128;
+const WARNING_ID = 'cdk-multi-region-stack:stackNotDeployedWithMainStack';
+const CYCLIC_REFERENCE_ISSUE_URL = 'https://github.com/go-to-k/cdk-multi-region-stack/issues/6';
+
+/**
+ * Maps twin/group stacks to the MultiRegionStack that created them, so the
+ * addDependency overrides can tell family cycles apart from cycles with
+ * unrelated user stacks.
+ */
+const OWNERS = new WeakMap<Stack, MultiRegionStack>();
+
+function familyOf(stack: Stack): MultiRegionStack | undefined {
+  return stack instanceof MultiRegionStack ? stack : OWNERS.get(stack);
+}
+
+/**
+ * CDK's cyclic-reference ValidationError names the stacks but not the fix.
+ * When the cycle is within one MultiRegionStack family (the main stack plus
+ * its twins and groups), append the cause and the fix. The message is
+ * mutated on the SAME error instead of wrapping it in a new one, preserving
+ * the ValidationError type that the CLI and user tooling key on.
+ */
+function enrichCyclicReferenceError(e: unknown, consumer: Stack, target: Stack): unknown {
+  if (
+    !(e instanceof Error) ||
+    !/cyclic reference/.test(e.message) ||
+    e.message.includes(CYCLIC_REFERENCE_ISSUE_URL)
+  ) {
+    return e;
+  }
+  const owner = familyOf(consumer);
+  if (owner === undefined || familyOf(target) !== owner) {
+    return e;
+  }
+  const twin = consumer === owner ? target : consumer;
+  e.message =
+    `${e.message}\n\n` +
+    'Cross-stack references between these stacks go in both directions (e.g. the main stack ' +
+    'references an ACM certificate in the region while a CloudWatch alarm in the region ' +
+    'references the main stack). A single stack pair cannot hold both directions.\n' +
+    'Move the constructs that reference the main stack into a separate group ' +
+    '(any group name not yet used in that region):\n' +
+    `  stack.regionScope('${twin.region}', { group: 'Alarms' })\n` +
+    `See ${CYCLIC_REFERENCE_ISSUE_URL}`;
+  return e;
+}
 
 /**
  * A Stack that can place some of its resources in other regions.
@@ -63,7 +108,7 @@ const MAX_STACK_NAME_LENGTH = 128;
  *   env: { account: '123456789012', region: 'ap-northeast-1' },
  * });
  * const cert = new acm.Certificate(stack.regionScope('us-east-1'), 'Cert', { ... });
- * new cloudfront.Distribution(stack, 'Dist', { certificates: [cert], ... });
+ * new cloudfront.Distribution(stack, 'Dist', { certificate: cert, ... });
  * ```
  *
  * When a resource must live in another region AND reference the main stack
@@ -82,6 +127,7 @@ const MAX_STACK_NAME_LENGTH = 128;
  */
 export class MultiRegionStack extends Stack {
   private readonly twins = new Map<string, Stack>();
+  private readonly warnedStacks = new Set<Stack>();
   private readonly inheritedProps: MultiRegionStackProps;
 
   constructor(scope: Construct, id: string, props: MultiRegionStackProps) {
@@ -96,7 +142,12 @@ export class MultiRegionStack extends Stack {
 
     // Runs after prepareApp (which resolves cross-stack references into
     // stack dependencies), so the dependency graph is final here.
-    this.node.addValidation({ validate: () => this.warnAboutStacksNotDeployedWithMain() });
+    this.node.addValidation({
+      validate: () => {
+        this.warnAboutStacksNotDeployedWithMain();
+        return [];
+      },
+    });
   }
 
   /**
@@ -127,18 +178,17 @@ export class MultiRegionStack extends Stack {
     if (group === undefined && region === this.region) {
       return this;
     }
-    if (group !== undefined) {
-      this.validateGroupName(group);
-    }
 
     const key = group === undefined ? region : `${region}/${group}`;
     let twin = this.twins.get(key);
     if (!twin) {
+      if (group !== undefined) {
+        this.validateGroupName(group);
+      }
       const parent = Stage.of(this) ?? this.node.root;
-      const id =
-        group === undefined ? `${this.node.id}-${region}` : `${this.node.id}-${region}-${group}`;
-      twin = new TwinStack(parent as Construct, id, {
-        stackName: group === undefined ? this.stackName : `${this.stackName}-${group}`,
+      const suffix = group === undefined ? '' : `-${group}`;
+      twin = new TwinStack(parent as Construct, `${this.node.id}-${region}${suffix}`, {
+        stackName: `${this.stackName}${suffix}`,
         env: {
           account: Token.isUnresolved(this.account) ? undefined : this.account,
           region,
@@ -147,8 +197,8 @@ export class MultiRegionStack extends Stack {
         description: this.inheritedProps.description,
         terminationProtection: this.inheritedProps.terminationProtection,
         tags: this.inheritedProps.tags,
-        owner: this,
       });
+      OWNERS.set(twin, this);
       // CloudFormation rejects templates with zero resources. Keeping a
       // no-op placeholder means "user removed the last resource in this
       // region" results in an (almost) empty twin stack being updated,
@@ -163,58 +213,22 @@ export class MultiRegionStack extends Stack {
     try {
       super.addDependency(target, reason);
     } catch (e) {
-      throw this._enrichCyclicReferenceError(e, target);
+      throw enrichCyclicReferenceError(e, this, target);
     }
-  }
-
-  /**
-   * Rethrows CDK's bare "would create a cyclic reference" with the cause
-   * and the fix when the cycle is between this stack family's members:
-   * both directions of cross-stack references landed in the same pair of
-   * stacks, and the constructs referencing the main stack belong in a group.
-   *
-   * @internal
-   */
-  public _enrichCyclicReferenceError(e: unknown, target: Stack): unknown {
-    if (!(e instanceof Error) || !/cyclic reference/.test(e.message) || !this._isFamily(target)) {
-      return e;
-    }
-    const region = target === this ? this.region : target.region;
-    return new Error(
-      `${e.message}\n\n` +
-        'Cross-stack references between these stacks go in both directions (e.g. the main stack ' +
-        'references an ACM certificate in the region while a CloudWatch alarm in the region ' +
-        'references the main stack). A single stack pair cannot hold both directions.\n' +
-        'Move the constructs that reference the main stack into a separate group:\n' +
-        `  stack.regionScope('${region}', { group: 'Alarms' })\n` +
-        'See https://github.com/go-to-k/cdk-multi-region-stack/issues/6',
-    );
-  }
-
-  /**
-   * Whether the given stack is this stack or one of its twins/groups.
-   *
-   * @internal
-   */
-  public _isFamily(stack: Stack): boolean {
-    if (stack === this) {
-      return true;
-    }
-    for (const twin of this.twins.values()) {
-      if (twin === stack) {
-        return true;
-      }
-    }
-    return false;
   }
 
   /**
    * `cdk deploy <MainStack>` extends the selection to dependencies only.
    * Any twin/group that is not (transitively) a dependency of the main
    * stack — typically a group whose resources reference the main stack —
-   * is silently skipped, so warn about it.
+   * is silently skipped, so warn about it. The Set guard keeps the warning
+   * from being appended again when the app is synthesized more than once.
+   *
+   * The message uses construct paths, not artifact IDs: CLI patterns match
+   * the hierarchical ID, which is the path for Stage-nested stacks (e.g.
+   * `MyStage/MyStack`) and the plain ID at the app level.
    */
-  private warnAboutStacksNotDeployedWithMain(): string[] {
+  private warnAboutStacksNotDeployedWithMain(): void {
     const deployedWithMain = new Set<Stack>();
     const queue: Stack[] = [this];
     while (queue.length > 0) {
@@ -227,16 +241,16 @@ export class MultiRegionStack extends Stack {
     }
 
     for (const twin of this.twins.values()) {
-      if (!deployedWithMain.has(twin)) {
+      if (!deployedWithMain.has(twin) && !this.warnedStacks.has(twin)) {
+        this.warnedStacks.add(twin);
         Annotations.of(twin).addWarningV2(
-          'cdk-multi-region-stack:stackNotDeployedWithMainStack',
-          `'${twin.artifactId}' is not a dependency of '${this.artifactId}', so 'cdk deploy ${this.artifactId}' will ` +
+          WARNING_ID,
+          `'${twin.node.path}' is not a dependency of '${this.node.path}', so 'cdk deploy ${this.node.path}' will ` +
             'NOT deploy it (the CLI extends the selection to dependencies only). ' +
-            `Deploy with a wildcard: cdk deploy '${this.artifactId}*'`,
+            `Deploy with a wildcard: cdk deploy '${this.node.path}*'`,
         );
       }
     }
-    return [];
   }
 
   private validateGroupName(group: string): void {
@@ -256,29 +270,17 @@ export class MultiRegionStack extends Stack {
   }
 }
 
-interface TwinStackProps extends StackProps {
-  readonly owner: MultiRegionStack;
-}
-
 /**
- * A twin/group stack. Plain Stack behavior, except that the bare
- * "would create a cyclic reference" error from CDK is enriched with the
- * cause and the `group` fix when the cycle is within the family.
+ * A twin/group stack. Plain Stack behavior, except that CDK's bare
+ * "would create a cyclic reference" error is enriched with the cause and
+ * the `group` fix when the cycle is within the family.
  */
 class TwinStack extends Stack {
-  private readonly owner: MultiRegionStack;
-
-  constructor(scope: Construct, id: string, props: TwinStackProps) {
-    const { owner, ...stackProps } = props;
-    super(scope, id, stackProps);
-    this.owner = owner;
-  }
-
   public addDependency(target: Stack, reason?: string): void {
     try {
       super.addDependency(target, reason);
     } catch (e) {
-      throw this.owner._isFamily(target) ? this.owner._enrichCyclicReferenceError(e, this) : e;
+      throw enrichCyclicReferenceError(e, this, target);
     }
   }
 }
