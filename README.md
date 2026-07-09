@@ -27,6 +27,43 @@ new cloudfront.Distribution(stack, 'Dist', {
 
 At synth time this produces one CloudFormation stack per region, all with the **same stack name**. References that cross regions are wired through CDK's built-in cross-region reference machinery (`crossRegionReferences: true` is enabled automatically).
 
+You can also `extends MultiRegionStack` to keep the multi-region wiring inside your own stack class. Inside the class, `this` is the main-region scope and `this.regionScope('us-east-1')` is the other-region scope:
+
+```ts
+import { MultiRegionStack, MultiRegionStackProps } from 'cdk-multi-region-stack';
+import { Construct } from 'constructs';
+
+interface MyAppStackProps extends MultiRegionStackProps {
+  readonly domainName: string;
+  readonly hostedZone: route53.IHostedZone;
+}
+
+class MyAppStack extends MultiRegionStack {
+  constructor(scope: Construct, id: string, props: MyAppStackProps) {
+    super(scope, id, props);
+
+    // Lives in us-east-1
+    const cert = new acm.Certificate(this.regionScope('us-east-1'), 'Cert', {
+      domainName: props.domainName,
+      validation: acm.CertificateValidation.fromDns(props.hostedZone),
+    });
+
+    // Lives in the stack's own region, references the us-east-1 certificate
+    new cloudfront.Distribution(this, 'Dist', {
+      defaultBehavior: { origin },
+      domainNames: [props.domainName],
+      certificate: cert,
+    });
+  }
+}
+
+new MyAppStack(app, 'MyApp', {
+  env: { account: '123456789012', region: 'ap-northeast-1' },
+  domainName: 'example.com',
+  hostedZone,
+});
+```
+
 ## How it works
 
 - `stack.regionScope(region)` lazily creates a "twin" `Stack` — a sibling of your stack (under the same `App`/`Stage`) with the same `stackName`, targeting the same account in the given region. Constructs created in that scope deploy to that region.
