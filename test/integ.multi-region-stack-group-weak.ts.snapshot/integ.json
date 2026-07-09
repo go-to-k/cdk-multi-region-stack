@@ -1,0 +1,17 @@
+{
+  "version": "53.0.0",
+  "testCases": {
+    "MultiRegionStackGroupWeakTest/DefaultTest": {
+      "stacks": [
+        "MultiRegionStackGroupWeakInteg-us-east-1-Alarms"
+      ],
+      "regions": [
+        "ap-northeast-1"
+      ],
+      "diffAssets": true,
+      "assertionStack": "MultiRegionStackGroupWeakTest/DefaultTest/DeployAssert",
+      "assertionStackName": "MultiRegionStackGroupWeakTestDefaultTestDeployAssertCA4657D9"
+    }
+  },
+  "minimumCliVersion": "2.1125.0"
+}

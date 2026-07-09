@@ -1,0 +1,34 @@
+{
+  "/MultiRegionStackGroupWeakInteg/DistStandIn": [
+    {
+      "type": "aws:cdk:analytics:construct",
+      "data": {
+        "stringValue": "*"
+      }
+    }
+  ],
+  "/MultiRegionStackGroupWeakInteg/BootstrapVersion": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "BootstrapVersion"
+    }
+  ],
+  "/MultiRegionStackGroupWeakInteg/CheckBootstrapVersion": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "CheckBootstrapVersion"
+    }
+  ],
+  "/MultiRegionStackGroupWeakInteg/DistStandIn/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DistStandIn48891E0B"
+    }
+  ],
+  "/MultiRegionStackGroupWeakInteg/Publish/Output{\"Ref\":\"DistStandIn48891E0B\"}": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "PublishOutputRefDistStandIn48891E0B65E12905"
+    }
+  ]
+}

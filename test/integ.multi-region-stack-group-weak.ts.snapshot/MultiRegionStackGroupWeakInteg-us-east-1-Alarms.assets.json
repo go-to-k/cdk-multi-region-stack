@@ -1,0 +1,21 @@
+{
+  "version": "53.0.0",
+  "files": {
+    "7e9d4bf316337e24ef89ef0b8af362debb1ca20ebf2e83973a59f5cb12ab3a39": {
+      "displayName": "MultiRegionStackGroupWeakInteg-Alarms Template",
+      "source": {
+        "path": "MultiRegionStackGroupWeakInteg-us-east-1-Alarms.template.json",
+        "packaging": "file"
+      },
+      "destinations": {
+        "current_account-us-east-1-f3af1065": {
+          "bucketName": "cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1",
+          "objectKey": "7e9d4bf316337e24ef89ef0b8af362debb1ca20ebf2e83973a59f5cb12ab3a39.json",
+          "region": "us-east-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-file-publishing-role-${AWS::AccountId}-us-east-1"
+        }
+      }
+    }
+  },
+  "dockerImages": {}
+}
