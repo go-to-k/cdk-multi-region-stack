@@ -75,6 +75,23 @@ new MyAppStack(app, 'MyApp', {
 });
 ```
 
+## How it works
+
+At synth time this produces one CloudFormation stack per region, all with the **same stack name**, wired through CDK's built-in cross-region reference machinery (`crossRegionReferences: true` is enabled automatically).
+
+- `stack.regionScope(region)` lazily creates a "twin" `Stack` — a sibling of your stack (under the same `App`/`Stage`) with the same `stackName`, targeting the same account in the given region. Constructs created in that scope deploy to that region.
+- Because the main stack references twin values, the CDK CLI treats twins as upstream dependencies: **`cdk deploy MyApp` deploys the twins automatically**, twins first.
+- Values crossing regions use CDK's export machinery. The reference strength (`strong` / `weak` / `both`) follows the `@aws-cdk/core:defaultCrossStackReferences` context flag (aws-cdk-lib >= 2.254.0). See [reference strength](https://github.com/aws/aws-cdk/blob/main/packages/aws-cdk-lib/README.md#reference-strength).
+  - **`strong` (default) adds a custom resource** on each side of every cross-region reference — an ExportWriter on the twin and an ExportReader on the main stack, each backed by a Lambda + role. If you'd rather not create those, opt into `weak`, which needs **zero extra infrastructure** (the value crosses via `Fn::GetStackOutput`, made possible by the shared stack name):
+
+    ```ts
+    const app = new App({
+      context: { '@aws-cdk/core:defaultCrossStackReferences': 'weak' },
+    });
+    ```
+
+    Or set it in `cdk.json` under `context`. Note that replacing a referenced resource does not auto-propagate under either strength.
+
 ## Resources that reference the main stack (groups)
 
 Some resources must live in another region AND reference the main stack. The flagship example is a CloudWatch alarm on CloudFront metrics: the metrics only exist in `us-east-1`, and the alarm references the distribution ID in the main stack. Putting the alarm in the same twin as the ACM certificate makes references flow in **both directions** between the two stacks — a stack-level cyclic reference, rejected at synth.
@@ -111,23 +128,6 @@ Details:
 - The same `(region, group)` pair always returns the same stack. A group in the stack's own region is allowed and creates a second main-region stack.
 - **`cdk deploy MyApp` does NOT deploy groups that reference the main stack.** The CLI extends the selection to *dependencies* only, and such groups are dependents (downstream). Deploy with a wildcard: `cdk deploy 'MyApp*'`. A synth-time warning reminds you when a group (or twin) is not a dependency of the main stack; if the layout is intentional, acknowledge it with `Annotations.of(theStack).acknowledgeWarning('cdk-multi-region-stack:stackNotDeployedWithMainStack')`.
 - Removing a `regionScope(region, { group })` call orphans the deployed group stack, same as removing a `regionScope()` call (see the caveats below).
-
-## How it works
-
-At synth time this produces one CloudFormation stack per region, all with the **same stack name**, wired through CDK's built-in cross-region reference machinery (`crossRegionReferences: true` is enabled automatically).
-
-- `stack.regionScope(region)` lazily creates a "twin" `Stack` — a sibling of your stack (under the same `App`/`Stage`) with the same `stackName`, targeting the same account in the given region. Constructs created in that scope deploy to that region.
-- Because the main stack references twin values, the CDK CLI treats twins as upstream dependencies: **`cdk deploy MyApp` deploys the twins automatically**, twins first.
-- Values crossing regions use CDK's export machinery. The reference strength (`strong` / `weak` / `both`) follows the `@aws-cdk/core:defaultCrossStackReferences` context flag (aws-cdk-lib >= 2.254.0). See [reference strength](https://github.com/aws/aws-cdk/blob/main/packages/aws-cdk-lib/README.md#reference-strength).
-  - **`strong` (default) adds a custom resource** on each side of every cross-region reference — an ExportWriter on the twin and an ExportReader on the main stack, each backed by a Lambda + role. If you'd rather not create those, opt into `weak`, which needs **zero extra infrastructure** (the value crosses via `Fn::GetStackOutput`, made possible by the shared stack name):
-
-    ```ts
-    const app = new App({
-      context: { '@aws-cdk/core:defaultCrossStackReferences': 'weak' },
-    });
-    ```
-
-    Or set it in `cdk.json` under `context`. Note that replacing a referenced resource does not auto-propagate under either strength.
 
 ## Conditionally skipping a region
 
