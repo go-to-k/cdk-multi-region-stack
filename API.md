@@ -23,9 +23,14 @@ const cert = new acm.Certificate(stack.regionScope('us-east-1'), 'Cert', { ... }
 new cloudfront.Distribution(stack, 'Dist', { certificate: cert, ... });
 ```
 
-When a resource must live in another region AND reference the main stack
-(e.g. a CloudWatch alarm on CloudFront metrics), put it in a "group" — an
-additional stack in that region — to avoid a cyclic reference:
+A resource that must live in another region and reference the main stack
+only needs special handling when it shares that region with a resource the
+main stack references — e.g. a CloudWatch alarm on CloudFront metrics
+alongside the ACM certificate in us-east-1. Putting both in one stack makes
+the two stacks reference each other, a cyclic reference. Put the
+main-referencing resource in a "group" — an additional stack in that
+region — to break the cycle (an alarm with no such twin in its region can
+go straight into the default twin instead):
 
 ```ts
 new cw.Alarm(stack.regionScope('us-east-1', { group: 'Alarms' }), 'Errors', { ... });
@@ -562,9 +567,10 @@ Calling it twice with the same region returns the same twin.
 
 With `options.group`, an additional stack named `<stackName>-<group>`
 is created in the region instead of the default twin — use this when
-resources in the region must reference the main stack (see
-`RegionScopeOptions.group`). A group in the stack's own region creates
-a sibling stack in the main region.
+placing a main-referencing resource in the default twin would create a
+cyclic reference, i.e. that twin also holds a resource the main stack
+references (see `RegionScopeOptions.group`). A group in the stack's own
+region creates a sibling stack in the main region.
 
 ###### `region`<sup>Required</sup> <a name="region" id="cdk-multi-region-stack.MultiRegionStack.regionScope.parameter.region"></a>
 
