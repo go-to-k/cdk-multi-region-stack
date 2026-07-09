@@ -1,0 +1,36 @@
+{
+  "version": "53.0.0",
+  "files": {
+    "f06f7035054cb2aada184c7c251ec5cb31fb6b5e975284939b9ff097603ea769": {
+      "displayName": "Prod/MultiRegionStackStageInteg/Custom::CrossRegionExportReaderCustomResourceProvider Code",
+      "source": {
+        "path": "../asset.f06f7035054cb2aada184c7c251ec5cb31fb6b5e975284939b9ff097603ea769",
+        "packaging": "zip"
+      },
+      "destinations": {
+        "current_account-ap-northeast-1-4a7cc45d": {
+          "bucketName": "cdk-hnb659fds-assets-${AWS::AccountId}-ap-northeast-1",
+          "objectKey": "f06f7035054cb2aada184c7c251ec5cb31fb6b5e975284939b9ff097603ea769.zip",
+          "region": "ap-northeast-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-file-publishing-role-${AWS::AccountId}-ap-northeast-1"
+        }
+      }
+    },
+    "17aa9622e79a3afb8a4baf9611861f92151db305a33ab65db13d357ff542ba05": {
+      "displayName": "Prod-MultiRegionStackStageInteg Template",
+      "source": {
+        "path": "ProdMultiRegionStackStageInteg03DA4C36.template.json",
+        "packaging": "file"
+      },
+      "destinations": {
+        "current_account-ap-northeast-1-9a7df8e6": {
+          "bucketName": "cdk-hnb659fds-assets-${AWS::AccountId}-ap-northeast-1",
+          "objectKey": "17aa9622e79a3afb8a4baf9611861f92151db305a33ab65db13d357ff542ba05.json",
+          "region": "ap-northeast-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-file-publishing-role-${AWS::AccountId}-ap-northeast-1"
+        }
+      }
+    }
+  },
+  "dockerImages": {}
+}
