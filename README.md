@@ -48,6 +48,7 @@ interface MyAppStackProps extends MultiRegionStackProps {
   readonly hostedZone: route53.IHostedZone;
 }
 
+// A stack in ap-northeast-1
 class MyAppStack extends MultiRegionStack {
   constructor(scope: Construct, id: string, props: MyAppStackProps) {
     super(scope, id, props);
@@ -58,7 +59,7 @@ class MyAppStack extends MultiRegionStack {
       validation: acm.CertificateValidation.fromDns(props.hostedZone),
     });
 
-    // Lives in the stack's own region, references the us-east-1 certificate
+    // Lives in the stack's own region (ap-northeast-1), references the us-east-1 certificate
     new cloudfront.Distribution(this, 'Dist', {
       defaultBehavior: { origin },
       domainNames: [props.domainName],
