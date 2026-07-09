@@ -94,7 +94,7 @@ At synth time this produces one CloudFormation stack per region, all with the **
 
 ## Resources that reference the main stack (groups)
 
-Some resources must live in another region AND reference the main stack. The flagship example is a CloudWatch alarm on CloudFront metrics: the metrics only exist in `us-east-1`, and the alarm references the distribution ID in the main stack. Putting the alarm in the same twin as the ACM certificate makes references flow in **both directions** between the two stacks — a stack-level cyclic reference, rejected at synth.
+Some resources must live in another region AND reference the main stack. The flagship example is a CloudWatch alarm on CloudFront metrics: the metrics only exist in `us-east-1`, and the alarm references the distribution ID in the main stack. Putting the alarm in the same twin as the ACM certificate makes references flow in **both directions** between the two stacks — a stack-level cyclic reference, rejected at synth. If the region holds nothing the main stack references — e.g. an alarm with no ACM certificate there — the reference is one-way and a plain `regionScope(region)` works without a group.
 
 Put such resources in a **group**: an additional stack in that region.
 
