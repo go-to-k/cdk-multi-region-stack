@@ -25,7 +25,10 @@ export interface RegionScopeOptions {
    * the ACM certificate in us-east-1 — putting both directions in one stack
    * is a cyclic reference. A group is a separate stack in the same region
    * that breaks the cycle; the deploy order is derived automatically from
-   * the references.
+   * the references. If the region holds nothing the main stack references
+   * (e.g. an alarm with no ACM certificate there), the reference is
+   * one-directional and the resource can go straight into the default
+   * `regionScope(region)` — no group needed.
    *
    * The group name becomes part of the stack name
    * (`<stackName>-<group>`), so it must start with a letter and contain
