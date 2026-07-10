@@ -234,29 +234,65 @@ describe('groups', () => {
   });
 });
 
-describe('regionStackNames (per-region name overrides)', () => {
-  test('the twin uses the declared name verbatim, keeping account and region', () => {
+describe('regionStackOverrides (per-region name/constructId overrides)', () => {
+  test('the twin uses the declared name and construct id, keeping account and region', () => {
     const stack = new MultiRegionStack(new App(), 'MyStack', {
       env,
       stackName: 'App-Tokyo',
-      regionStackNames: { 'us-east-1': { stackName: 'App-Virginia' } },
+      regionStackOverrides: {
+        'us-east-1': { defaultStack: { stackName: 'App-Virginia', constructId: 'App-Virginia' } },
+      },
     });
     const use1 = stack.regionScope('us-east-1');
 
     expect(stack.stackName).toBe('App-Tokyo');
     expect(use1.stackName).toBe('App-Virginia');
+    expect(use1.node.id).toBe('App-Virginia');
     expect(use1.region).toBe('us-east-1');
     expect(use1.account).toBe(stack.account);
+  });
+
+  test('stackName and constructId are independent: overriding only one keeps the other derived', () => {
+    const stack = new MultiRegionStack(new App(), 'MyStack', {
+      env,
+      regionStackOverrides: {
+        'us-east-1': { defaultStack: { constructId: 'CustomId' } }, // no stackName
+        'us-west-2': { defaultStack: { stackName: 'CustomName' } }, // no constructId
+      },
+    });
+    const use1 = stack.regionScope('us-east-1');
+    const usw2 = stack.regionScope('us-west-2');
+
+    // constructId overridden, stackName still the shared default
+    expect(use1.node.id).toBe('CustomId');
+    expect(use1.stackName).toBe('MyStack');
+    // stackName overridden, constructId still `<mainId>-<region>`
+    expect(usw2.node.id).toBe('MyStack-us-west-2');
+    expect(usw2.stackName).toBe('CustomName');
+  });
+
+  test('a twin/group with no entry keeps the derived name and construct id', () => {
+    const stack = new MultiRegionStack(new App(), 'MyStack', { env });
+    const use1 = stack.regionScope('us-east-1');
+    const group = stack.regionScope('us-east-1', { group: 'Alarms' });
+
+    expect(use1.node.id).toBe('MyStack-us-east-1');
+    expect(group.node.id).toBe('MyStack-us-east-1-Alarms');
+    expect(use1.stackName).toBe('MyStack');
+    expect(group.stackName).toBe('MyStack-Alarms');
   });
 
   test('regionScope stays a pure accessor: order-independent and repeatable', () => {
     const stack = new MultiRegionStack(new App(), 'MyStack', {
       env,
-      regionStackNames: { 'us-east-1': { stackName: 'App-Virginia' } },
+      regionStackOverrides: {
+        'us-east-1': { defaultStack: { stackName: 'App-Virginia', constructId: 'App-Virginia' } },
+      },
     });
-    // resolves to the declared name however it is reached
+    // resolves to the declared name/id however it is reached
     const a = stack.regionScope('us-east-1');
     expect(a.stackName).toBe('App-Virginia');
+    expect(a.node.id).toBe('App-Virginia');
     expect(stack.regionScope('us-east-1')).toBe(a);
   });
 
@@ -267,7 +303,9 @@ describe('regionStackNames (per-region name overrides)', () => {
     const stack = new MultiRegionStack(app, 'MyStack', {
       env,
       stackName: 'App-Tokyo',
-      regionStackNames: { 'us-east-1': { stackName: 'App-Virginia' } },
+      regionStackOverrides: {
+        'us-east-1': { defaultStack: { stackName: 'App-Virginia', constructId: 'App-Virginia' } },
+      },
     });
     const topic = new sns.Topic(stack.regionScope('us-east-1'), 'Topic');
     new ssm.StringParameter(stack, 'Param', { stringValue: topic.topicArn });
@@ -284,7 +322,9 @@ describe('regionStackNames (per-region name overrides)', () => {
     const stack = new MultiRegionStack(new App(), 'MyStack', {
       env,
       stackName: 'App-Tokyo',
-      regionStackNames: { 'us-east-1': { stackName: 'App-Virginia' } },
+      regionStackOverrides: {
+        'us-east-1': { defaultStack: { stackName: 'App-Virginia', constructId: 'App-Virginia' } },
+      },
     });
     const use1 = stack.regionScope('us-east-1');
     const topic = new sns.Topic(use1, 'Topic');
@@ -294,28 +334,32 @@ describe('regionStackNames (per-region name overrides)', () => {
     Template.fromStack(use1).resourceCountIs('Custom::CrossRegionExportWriter', 1);
   });
 
-  test('a group is named via groupStackNames, used verbatim', () => {
+  test('a group is overridden via groupStacks, used verbatim', () => {
     const stack = new MultiRegionStack(new App(), 'MyStack', {
       env,
       stackName: 'App-Tokyo',
-      regionStackNames: {
+      regionStackOverrides: {
         'us-east-1': {
-          stackName: 'App-Virginia',
-          groupStackNames: { Alarms: 'App-Virginia-Alarms' },
+          defaultStack: { stackName: 'App-Virginia', constructId: 'App-Virginia' },
+          groupStacks: {
+            Alarms: { stackName: 'App-Virginia-Alarms', constructId: 'App-Virginia-Alarms' },
+          },
         },
       },
     });
+    const alarms = stack.regionScope('us-east-1', { group: 'Alarms' });
     expect(stack.regionScope('us-east-1').stackName).toBe('App-Virginia');
-    expect(stack.regionScope('us-east-1', { group: 'Alarms' }).stackName).toBe(
-      'App-Virginia-Alarms',
-    );
+    expect(alarms.stackName).toBe('App-Virginia-Alarms');
+    expect(alarms.node.id).toBe('App-Virginia-Alarms');
   });
 
   test('a group with no entry keeps its derived name; a region with no entry keeps the shared name', () => {
     const stack = new MultiRegionStack(new App(), 'MyStack', {
       env,
       stackName: 'App-Tokyo',
-      regionStackNames: { 'us-east-1': { stackName: 'App-Virginia' } },
+      regionStackOverrides: {
+        'us-east-1': { defaultStack: { stackName: 'App-Virginia', constructId: 'App-Virginia' } },
+      },
     });
     // the group has no entry, so it keeps <mainStackName>-<group>
     expect(stack.regionScope('us-east-1', { group: 'Alarms' }).stackName).toBe('App-Tokyo-Alarms');
@@ -323,32 +367,46 @@ describe('regionStackNames (per-region name overrides)', () => {
     expect(stack.regionScope('us-west-2').stackName).toBe('App-Tokyo');
   });
 
-  test('a group in the own region can be named via groupStackNames', () => {
+  test('a group in the own region can be overridden via groupStacks', () => {
     const stack = new MultiRegionStack(new App(), 'MyStack', {
       env,
       stackName: 'App-Tokyo',
-      regionStackNames: { 'ap-northeast-1': { groupStackNames: { Extra: 'App-Tokyo-Extra' } } },
+      regionStackOverrides: {
+        'ap-northeast-1': {
+          groupStacks: { Extra: { stackName: 'App-Tokyo-Extra', constructId: 'App-Tokyo-Extra' } },
+        },
+      },
     });
     const group = stack.regionScope('ap-northeast-1', { group: 'Extra' });
     expect(group).not.toBe(stack);
     expect(group.region).toBe('ap-northeast-1');
     expect(group.stackName).toBe('App-Tokyo-Extra');
+    expect(group.node.id).toBe('App-Tokyo-Extra');
   });
 
-  test('a stackName for the own region is rejected; own-region groups are allowed', () => {
+  test('a defaultStack override for the own region is rejected (both name and constructId)', () => {
     expect(
       () =>
         new MultiRegionStack(new App(), 'MyStack', {
           env,
-          regionStackNames: { 'ap-northeast-1': { stackName: 'Other' } },
+          regionStackOverrides: { 'ap-northeast-1': { defaultStack: { stackName: 'Other' } } },
         }),
     ).toThrow(/cannot rename the main stack/);
+    expect(
+      () =>
+        new MultiRegionStack(new App(), 'MyStack', {
+          env,
+          regionStackOverrides: { 'ap-northeast-1': { defaultStack: { constructId: 'Other' } } },
+        }),
+    ).toThrow(/cannot change the main stack's construct ID/);
     // groups in the own region do not trigger the rejection
     expect(
       () =>
         new MultiRegionStack(new App(), 'MyStack', {
           env,
-          regionStackNames: { 'ap-northeast-1': { groupStackNames: { Extra: 'Ok' } } },
+          regionStackOverrides: {
+            'ap-northeast-1': { groupStacks: { Extra: { stackName: 'Ok' } } },
+          },
         }),
     ).not.toThrow();
   });
@@ -360,18 +418,36 @@ describe('regionStackNames (per-region name overrides)', () => {
         () =>
           new MultiRegionStack(new App(), 'MyStack', {
             env,
-            regionStackNames: { 'us-east-1': { stackName: name } },
+            regionStackOverrides: { 'us-east-1': { defaultStack: { stackName: name } } },
           }),
       ).toThrow(/must start with a letter/);
     },
   );
 
-  test('fails for an invalid group key in groupStackNames', () => {
+  test.each(['', 'a/b', 'has/slash'])('fails for invalid constructId %j', (constructId) => {
     expect(
       () =>
         new MultiRegionStack(new App(), 'MyStack', {
           env,
-          regionStackNames: { 'us-east-1': { groupStackNames: { '1bad': 'Name' } } },
+          regionStackOverrides: { 'us-east-1': { defaultStack: { constructId } } },
+        }),
+    ).toThrow(/must be a non-empty string without/);
+  });
+
+  test('a constructId with spaces or other characters is accepted (it is only a construct id)', () => {
+    const stack = new MultiRegionStack(new App(), 'MyStack', {
+      env,
+      regionStackOverrides: { 'us-east-1': { defaultStack: { constructId: 'App_Virginia.v2' } } },
+    });
+    expect(stack.regionScope('us-east-1').node.id).toBe('App_Virginia.v2');
+  });
+
+  test('fails for an invalid group key in groupStacks', () => {
+    expect(
+      () =>
+        new MultiRegionStack(new App(), 'MyStack', {
+          env,
+          regionStackOverrides: { 'us-east-1': { groupStacks: { '1bad': { stackName: 'Name' } } } },
         }),
     ).toThrow(/group must start with a letter/);
   });
@@ -381,7 +457,7 @@ describe('regionStackNames (per-region name overrides)', () => {
       () =>
         new MultiRegionStack(new App(), 'MyStack', {
           env,
-          regionStackNames: { 'us-east-1': { stackName: 'a'.repeat(129) } },
+          regionStackOverrides: { 'us-east-1': { defaultStack: { stackName: 'a'.repeat(129) } } },
         }),
     ).toThrow(/exceed 128 characters/);
   });
@@ -391,7 +467,7 @@ describe('regionStackNames (per-region name overrides)', () => {
     // name collides in us-east-1
     const stack = new MultiRegionStack(new App(), 'MyStack', {
       env,
-      regionStackNames: { 'us-east-1': { stackName: 'MyStack-Alarms' } },
+      regionStackOverrides: { 'us-east-1': { defaultStack: { stackName: 'MyStack-Alarms' } } },
     });
     stack.regionScope('us-east-1', { group: 'Alarms' }); // 'MyStack-Alarms'
     expect(() => stack.regionScope('us-east-1')).toThrow(
@@ -402,9 +478,9 @@ describe('regionStackNames (per-region name overrides)', () => {
   test('the same name in a different region does not collide', () => {
     const stack = new MultiRegionStack(new App(), 'MyStack', {
       env,
-      regionStackNames: {
-        'us-east-1': { stackName: 'Shared' },
-        'us-west-2': { stackName: 'Shared' },
+      regionStackOverrides: {
+        'us-east-1': { defaultStack: { stackName: 'Shared' } },
+        'us-west-2': { defaultStack: { stackName: 'Shared' } },
       },
     });
     const use1 = stack.regionScope('us-east-1');
@@ -414,40 +490,91 @@ describe('regionStackNames (per-region name overrides)', () => {
     expect(use1).not.toBe(usw2);
   });
 
-  test('a declared name whose twin is never created warns that it is unused', () => {
+  test('the same constructId in a different region DOES collide (one construct namespace)', () => {
+    const stack = new MultiRegionStack(new App(), 'MyStack', {
+      env,
+      regionStackOverrides: {
+        'us-east-1': { defaultStack: { constructId: 'Shared' } },
+        'us-west-2': { defaultStack: { constructId: 'Shared' } },
+      },
+    });
+    stack.regionScope('us-east-1');
+    expect(() => stack.regionScope('us-west-2')).toThrow(/second construct with id 'Shared'/);
+  });
+
+  test('a constructId colliding with the main stack construct id is rejected', () => {
+    const stack = new MultiRegionStack(new App(), 'MyStack', {
+      env,
+      regionStackOverrides: { 'us-east-1': { defaultStack: { constructId: 'MyStack' } } },
+    });
+    expect(() => stack.regionScope('us-east-1')).toThrow(/second construct with id 'MyStack'/);
+  });
+
+  test('a defaultStack override whose twin is never created warns that it is unused', () => {
     const stack = new MultiRegionStack(new App(), 'MyStack', {
       env,
       // typo: 'us-east-01' is never scoped, so the override is silently unused
-      regionStackNames: { 'us-east-01': { stackName: 'App-Virginia' } },
+      regionStackOverrides: { 'us-east-01': { defaultStack: { stackName: 'App-Virginia' } } },
     });
     stack.regionScope('us-east-1'); // the real region
 
     Annotations.fromStack(stack).hasWarning(
       '*',
       Match.stringLikeRegexp(
-        ".*regionStackNames\\['us-east-01'\\].stackName is declared but unused.*",
+        ".*regionStackOverrides\\['us-east-01'\\].defaultStack is declared but unused.*",
       ),
     );
   });
 
-  test('a declared group name whose group is never created warns that it is unused', () => {
+  test('a constructId-only defaultStack override whose twin is never created also warns', () => {
     const stack = new MultiRegionStack(new App(), 'MyStack', {
       env,
-      regionStackNames: { 'us-east-1': { groupStackNames: { Alarms: 'Custom' } } },
+      regionStackOverrides: { 'us-east-01': { defaultStack: { constructId: 'App-Virginia' } } },
+    });
+    stack.regionScope('us-east-1');
+
+    Annotations.fromStack(stack).hasWarning(
+      '*',
+      Match.stringLikeRegexp(
+        ".*regionStackOverrides\\['us-east-01'\\].defaultStack is declared but unused.*",
+      ),
+    );
+  });
+
+  test('an empty defaultStack (no name, no constructId) does not warn', () => {
+    const stack = new MultiRegionStack(new App(), 'MyStack', {
+      env,
+      regionStackOverrides: { 'us-east-01': { defaultStack: {} } },
+    });
+    stack.regionScope('us-east-1');
+
+    Annotations.fromStack(stack).hasNoWarning(
+      '*',
+      Match.stringLikeRegexp('.*is declared but unused.*'),
+    );
+  });
+
+  test('a declared group override whose group is never created warns that it is unused', () => {
+    const stack = new MultiRegionStack(new App(), 'MyStack', {
+      env,
+      regionStackOverrides: { 'us-east-1': { groupStacks: { Alarms: { stackName: 'Custom' } } } },
     });
     stack.regionScope('us-east-1'); // only the default twin, not the group
 
     Annotations.fromStack(stack).hasWarning(
       '*',
-      Match.stringLikeRegexp(".*groupStackNames\\['Alarms'\\] is declared but unused.*"),
+      Match.stringLikeRegexp(".*groupStacks\\['Alarms'\\] is declared but unused.*"),
     );
   });
 
-  test('declared names whose twins are created do not warn', () => {
+  test('declared overrides whose twins are created do not warn', () => {
     const stack = new MultiRegionStack(new App(), 'MyStack', {
       env,
-      regionStackNames: {
-        'us-east-1': { stackName: 'App-Virginia', groupStackNames: { Alarms: 'Custom' } },
+      regionStackOverrides: {
+        'us-east-1': {
+          defaultStack: { stackName: 'App-Virginia' },
+          groupStacks: { Alarms: { stackName: 'Custom' } },
+        },
       },
     });
     stack.regionScope('us-east-1');
@@ -462,8 +589,11 @@ describe('regionStackNames (per-region name overrides)', () => {
   test('warns only for the unused entry when a twin is used but its group is not', () => {
     const stack = new MultiRegionStack(new App(), 'MyStack', {
       env,
-      regionStackNames: {
-        'us-east-1': { stackName: 'App-Virginia', groupStackNames: { Alarms: 'Custom' } },
+      regionStackOverrides: {
+        'us-east-1': {
+          defaultStack: { stackName: 'App-Virginia' },
+          groupStacks: { Alarms: { stackName: 'Custom' } },
+        },
       },
     });
     stack.regionScope('us-east-1'); // default twin used, group 'Alarms' not
@@ -471,11 +601,11 @@ describe('regionStackNames (per-region name overrides)', () => {
     const annotations = Annotations.fromStack(stack);
     annotations.hasWarning(
       '*',
-      Match.stringLikeRegexp(".*groupStackNames\\['Alarms'\\] is declared but unused.*"),
+      Match.stringLikeRegexp(".*groupStacks\\['Alarms'\\] is declared but unused.*"),
     );
     annotations.hasNoWarning(
       '*',
-      Match.stringLikeRegexp('.*\\.stackName is declared but unused.*'),
+      Match.stringLikeRegexp('.*\\.defaultStack is declared but unused.*'),
     );
   });
 
@@ -483,7 +613,7 @@ describe('regionStackNames (per-region name overrides)', () => {
     const app = new App();
     const stack = new MultiRegionStack(app, 'MyStack', {
       env,
-      regionStackNames: { 'us-east-01': { stackName: 'App-Virginia' } },
+      regionStackOverrides: { 'us-east-01': { defaultStack: { stackName: 'App-Virginia' } } },
     });
     stack.regionScope('us-east-1');
     app.synth();
@@ -499,7 +629,9 @@ describe('regionStackNames (per-region name overrides)', () => {
     const stack = new MultiRegionStack(new App(), 'MyStack', {
       env,
       // a sibling group in the main region named exactly like the main stack
-      regionStackNames: { 'ap-northeast-1': { groupStackNames: { Extra: 'MyStack' } } },
+      regionStackOverrides: {
+        'ap-northeast-1': { groupStacks: { Extra: { stackName: 'MyStack' } } },
+      },
     });
     expect(() => stack.regionScope('ap-northeast-1', { group: 'Extra' })).toThrow(
       /second stack named 'MyStack' in region 'ap-northeast-1'/,

@@ -1,59 +1,59 @@
 {
-  "/MultiRegionStackRenameInteg-us-east-1/Placeholder": [
+  "/MrsRenameV2-Virginia/Placeholder": [
     {
       "type": "aws:cdk:logicalId",
       "data": "Placeholder"
     }
   ],
-  "/MultiRegionStackRenameInteg-us-east-1/CertStandIn": [
+  "/MrsRenameV2-Virginia/CertStandIn": [
     {
       "type": "aws:cdk:analytics:construct",
       "data": "*"
     }
   ],
-  "/MultiRegionStackRenameInteg-us-east-1/Custom::CrossRegionExportWriterCustomResourceProvider": [
+  "/MrsRenameV2-Virginia/Custom::CrossRegionExportWriterCustomResourceProvider": [
     {
       "type": "aws:cdk:is-custom-resource-handler-customResourceProvider",
       "data": true
     }
   ],
-  "/MultiRegionStackRenameInteg-us-east-1/BootstrapVersion": [
+  "/MrsRenameV2-Virginia/BootstrapVersion": [
     {
       "type": "aws:cdk:logicalId",
       "data": "BootstrapVersion"
     }
   ],
-  "/MultiRegionStackRenameInteg-us-east-1/CheckBootstrapVersion": [
+  "/MrsRenameV2-Virginia/CheckBootstrapVersion": [
     {
       "type": "aws:cdk:logicalId",
       "data": "CheckBootstrapVersion"
     }
   ],
-  "/MultiRegionStackRenameInteg-us-east-1/CertStandIn/Resource": [
+  "/MrsRenameV2-Virginia/CertStandIn/Resource": [
     {
       "type": "aws:cdk:logicalId",
       "data": "CertStandInA885FAAE"
     }
   ],
-  "/MultiRegionStackRenameInteg-us-east-1/ExportsWriterapnortheast12334E1B8/Resource": [
+  "/MrsRenameV2-Virginia/ExportsWriterapnortheast12334E1B8/Resource": [
     {
       "type": "aws:cdk:analytics:construct",
       "data": "*"
     }
   ],
-  "/MultiRegionStackRenameInteg-us-east-1/Custom::CrossRegionExportWriterCustomResourceProvider/Role": [
+  "/MrsRenameV2-Virginia/Custom::CrossRegionExportWriterCustomResourceProvider/Role": [
     {
       "type": "aws:cdk:logicalId",
       "data": "CustomCrossRegionExportWriterCustomResourceProviderRoleC951B1E1"
     }
   ],
-  "/MultiRegionStackRenameInteg-us-east-1/Custom::CrossRegionExportWriterCustomResourceProvider/Handler": [
+  "/MrsRenameV2-Virginia/Custom::CrossRegionExportWriterCustomResourceProvider/Handler": [
     {
       "type": "aws:cdk:logicalId",
       "data": "CustomCrossRegionExportWriterCustomResourceProviderHandlerD8786E8A"
     }
   ],
-  "/MultiRegionStackRenameInteg-us-east-1/ExportsWriterapnortheast12334E1B8/Resource/Default": [
+  "/MrsRenameV2-Virginia/ExportsWriterapnortheast12334E1B8/Resource/Default": [
     {
       "type": "aws:cdk:logicalId",
       "data": "ExportsWriterapnortheast12334E1B81D43DF3F"

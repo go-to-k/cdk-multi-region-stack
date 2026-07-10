@@ -2,7 +2,7 @@
   "version": "53.0.0",
   "files": {
     "31140ce5921f80123008765a60e2192cf1e46ada6affd18ba12754bca501e093": {
-      "displayName": "MultiRegionStackRenameInteg-us-east-1/Custom::CrossRegionExportWriterCustomResourceProvider Code",
+      "displayName": "MrsRenameV2-Virginia/Custom::CrossRegionExportWriterCustomResourceProvider Code",
       "source": {
         "path": "asset.31140ce5921f80123008765a60e2192cf1e46ada6affd18ba12754bca501e093",
         "packaging": "zip"
@@ -19,7 +19,7 @@
     "408c3d41c36e10bf59ccf55f03ed51801678f2d0a9cfb1e0ee939f1a2d292026": {
       "displayName": "MrsRenameV2-Virginia Template",
       "source": {
-        "path": "MultiRegionStackRenameInteg-us-east-1.template.json",
+        "path": "MrsRenameV2-Virginia.template.json",
         "packaging": "file"
       },
       "destinations": {

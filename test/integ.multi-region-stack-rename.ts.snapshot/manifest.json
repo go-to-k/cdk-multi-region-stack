@@ -32,25 +32,25 @@
         "stackName": "MrsRenameV2-Tokyo"
       },
       "dependencies": [
-        "MultiRegionStackRenameInteg-us-east-1",
+        "MrsRenameV2-Virginia",
         "MultiRegionStackRenameInteg.assets"
       ],
       "additionalMetadataFile": "MultiRegionStackRenameInteg.metadata.json",
       "displayName": "MultiRegionStackRenameInteg"
     },
-    "MultiRegionStackRenameInteg-us-east-1.assets": {
+    "MrsRenameV2-Virginia.assets": {
       "type": "cdk:asset-manifest",
       "properties": {
-        "file": "MultiRegionStackRenameInteg-us-east-1.assets.json",
+        "file": "MrsRenameV2-Virginia.assets.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
       }
     },
-    "MultiRegionStackRenameInteg-us-east-1": {
+    "MrsRenameV2-Virginia": {
       "type": "aws:cloudformation:stack",
       "environment": "aws://unknown-account/us-east-1",
       "properties": {
-        "templateFile": "MultiRegionStackRenameInteg-us-east-1.template.json",
+        "templateFile": "MrsRenameV2-Virginia.template.json",
         "terminationProtection": false,
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-deploy-role-${AWS::AccountId}-us-east-1",
@@ -59,34 +59,33 @@
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
-          "MultiRegionStackRenameInteg-us-east-1.assets"
+          "MrsRenameV2-Virginia.assets"
         ],
         "lookupRole": {
           "arn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-lookup-role-${AWS::AccountId}-us-east-1",
           "requiresBootstrapStackVersion": 8,
           "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
-        },
-        "stackName": "MrsRenameV2-Virginia"
+        }
       },
       "dependencies": [
-        "MultiRegionStackRenameInteg-us-east-1.assets"
+        "MrsRenameV2-Virginia.assets"
       ],
-      "additionalMetadataFile": "MultiRegionStackRenameInteg-us-east-1.metadata.json",
-      "displayName": "MultiRegionStackRenameInteg-us-east-1"
+      "additionalMetadataFile": "MrsRenameV2-Virginia.metadata.json",
+      "displayName": "MrsRenameV2-Virginia"
     },
-    "MultiRegionStackRenameInteg-us-east-1-Alarms.assets": {
+    "MrsRenameV2-Virginia-Alarms.assets": {
       "type": "cdk:asset-manifest",
       "properties": {
-        "file": "MultiRegionStackRenameInteg-us-east-1-Alarms.assets.json",
+        "file": "MrsRenameV2-Virginia-Alarms.assets.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
       }
     },
-    "MultiRegionStackRenameInteg-us-east-1-Alarms": {
+    "MrsRenameV2-Virginia-Alarms": {
       "type": "aws:cloudformation:stack",
       "environment": "aws://unknown-account/us-east-1",
       "properties": {
-        "templateFile": "MultiRegionStackRenameInteg-us-east-1-Alarms.template.json",
+        "templateFile": "MrsRenameV2-Virginia-Alarms.template.json",
         "terminationProtection": false,
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-deploy-role-${AWS::AccountId}-us-east-1",
@@ -95,21 +94,20 @@
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
-          "MultiRegionStackRenameInteg-us-east-1-Alarms.assets"
+          "MrsRenameV2-Virginia-Alarms.assets"
         ],
         "lookupRole": {
           "arn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-lookup-role-${AWS::AccountId}-us-east-1",
           "requiresBootstrapStackVersion": 8,
           "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
-        },
-        "stackName": "MrsRenameV2-Virginia-Alarms"
+        }
       },
       "dependencies": [
         "MultiRegionStackRenameInteg",
-        "MultiRegionStackRenameInteg-us-east-1-Alarms.assets"
+        "MrsRenameV2-Virginia-Alarms.assets"
       ],
-      "additionalMetadataFile": "MultiRegionStackRenameInteg-us-east-1-Alarms.metadata.json",
-      "displayName": "MultiRegionStackRenameInteg-us-east-1-Alarms"
+      "additionalMetadataFile": "MrsRenameV2-Virginia-Alarms.metadata.json",
+      "displayName": "MrsRenameV2-Virginia-Alarms"
     },
     "MultiRegionStackRenameTestDefaultTestDeployAssert3839470E.assets": {
       "type": "cdk:asset-manifest",

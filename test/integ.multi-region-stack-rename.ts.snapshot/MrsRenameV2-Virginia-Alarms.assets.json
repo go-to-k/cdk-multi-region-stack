@@ -2,7 +2,7 @@
   "version": "53.0.0",
   "files": {
     "f06f7035054cb2aada184c7c251ec5cb31fb6b5e975284939b9ff097603ea769": {
-      "displayName": "MultiRegionStackRenameInteg-us-east-1-Alarms/Custom::CrossRegionExportReaderCustomResourceProvider Code",
+      "displayName": "MrsRenameV2-Virginia-Alarms/Custom::CrossRegionExportReaderCustomResourceProvider Code",
       "source": {
         "path": "asset.f06f7035054cb2aada184c7c251ec5cb31fb6b5e975284939b9ff097603ea769",
         "packaging": "zip"
@@ -19,7 +19,7 @@
     "cf16f3438175dfeeeda724310eb379bb74aa82184fd65aaaed1f289e518b215d": {
       "displayName": "MrsRenameV2-Virginia-Alarms Template",
       "source": {
-        "path": "MultiRegionStackRenameInteg-us-east-1-Alarms.template.json",
+        "path": "MrsRenameV2-Virginia-Alarms.template.json",
         "packaging": "file"
       },
       "destinations": {
