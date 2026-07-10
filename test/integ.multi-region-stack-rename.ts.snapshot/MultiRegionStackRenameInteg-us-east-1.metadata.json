@@ -5,7 +5,7 @@
       "data": "Placeholder"
     }
   ],
-  "/MultiRegionStackRenameInteg-us-east-1/GlobalTopic": [
+  "/MultiRegionStackRenameInteg-us-east-1/CertStandIn": [
     {
       "type": "aws:cdk:analytics:construct",
       "data": "*"
@@ -29,10 +29,10 @@
       "data": "CheckBootstrapVersion"
     }
   ],
-  "/MultiRegionStackRenameInteg-us-east-1/GlobalTopic/Resource": [
+  "/MultiRegionStackRenameInteg-us-east-1/CertStandIn/Resource": [
     {
       "type": "aws:cdk:logicalId",
-      "data": "GlobalTopic32670893"
+      "data": "CertStandInA885FAAE"
     }
   ],
   "/MultiRegionStackRenameInteg-us-east-1/ExportsWriterapnortheast12334E1B8/Resource": [

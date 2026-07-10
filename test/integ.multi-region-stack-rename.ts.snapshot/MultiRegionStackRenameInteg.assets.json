@@ -16,16 +16,31 @@
         }
       }
     },
-    "6082947270182f6ebb2114515076d3807b779555baf882c26f64c272add3e8d8": {
-      "displayName": "MrsRenameInteg-Tokyo Template",
+    "31140ce5921f80123008765a60e2192cf1e46ada6affd18ba12754bca501e093": {
+      "displayName": "MultiRegionStackRenameInteg/Custom::CrossRegionExportWriterCustomResourceProvider Code",
+      "source": {
+        "path": "asset.31140ce5921f80123008765a60e2192cf1e46ada6affd18ba12754bca501e093",
+        "packaging": "zip"
+      },
+      "destinations": {
+        "current_account-ap-northeast-1-695a28de": {
+          "bucketName": "cdk-hnb659fds-assets-${AWS::AccountId}-ap-northeast-1",
+          "objectKey": "31140ce5921f80123008765a60e2192cf1e46ada6affd18ba12754bca501e093.zip",
+          "region": "ap-northeast-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-file-publishing-role-${AWS::AccountId}-ap-northeast-1"
+        }
+      }
+    },
+    "7fbc3629f9ce0fc478961aa5a764d8f03c9bf424dfb4578e08af18b838e2356c": {
+      "displayName": "MrsRenameV2-Tokyo Template",
       "source": {
         "path": "MultiRegionStackRenameInteg.template.json",
         "packaging": "file"
       },
       "destinations": {
-        "current_account-ap-northeast-1-12440274": {
+        "current_account-ap-northeast-1-c757c36b": {
           "bucketName": "cdk-hnb659fds-assets-${AWS::AccountId}-ap-northeast-1",
-          "objectKey": "6082947270182f6ebb2114515076d3807b779555baf882c26f64c272add3e8d8.json",
+          "objectKey": "7fbc3629f9ce0fc478961aa5a764d8f03c9bf424dfb4578e08af18b838e2356c.json",
           "region": "ap-northeast-1",
           "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-file-publishing-role-${AWS::AccountId}-ap-northeast-1"
         }

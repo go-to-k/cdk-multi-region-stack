@@ -6,33 +6,47 @@ import { MultiRegionStack } from '../src';
 
 const app = new App();
 
-// Migration shape: the two regions do NOT share a stack name. The main stack
-// and the twin are named independently (as a hand-split deployment would be),
-// proving the shared-name convention is not required for the cross-region
-// reference to resolve.
+// Migration shape: the regions do NOT share a stack name. The main stack, its
+// us-east-1 twin, and a us-east-1 group are each named independently (as a
+// hand-split deployment would be), via `stackName` + `regionStackNames`. This
+// proves the shared-name convention is not required for the cross-region
+// references to resolve in EITHER direction:
+//   - main -> twin  (main references the renamed twin)
+//   - group -> main (the renamed group references back into main)
 //
 // Account is intentionally left environment-agnostic so the committed snapshot
 // contains no account ID; it resolves from credentials at deploy.
 const stack = new MultiRegionStack(app, 'MultiRegionStackRenameInteg', {
   env: { region: 'ap-northeast-1' },
-  stackName: 'MrsRenameInteg-Tokyo',
-  regionStackNames: { 'us-east-1': { stackName: 'MrsRenameInteg-Virginia' } },
+  stackName: 'MrsRenameV2-Tokyo',
+  regionStackNames: {
+    'us-east-1': {
+      stackName: 'MrsRenameV2-Virginia',
+      groupStackNames: { Alarms: 'MrsRenameV2-Virginia-Alarms' },
+    },
+  },
 });
 
-// Twin (us-east-1) with an independent name — stands in for an ACM
-// certificate / WAF WebACL living in the pre-existing us-east-1 stack.
-const topic = new sns.Topic(stack.regionScope('us-east-1'), 'GlobalTopic');
+// Twin (us-east-1, renamed) — stands in for an ACM certificate; the main stack
+// references it (main -> twin).
+const cert = new sns.Topic(stack.regionScope('us-east-1'), 'CertStandIn');
 
-// Main-region resource consuming the twin's value across regions. Under strong
-// references the export writer/reader wiring is name-independent; the deploy
-// succeeding proves the differently-named twin is referenced correctly.
-new ssm.StringParameter(stack, 'Consumer', {
-  parameterName: '/cdk-multi-region-stack/integ-rename/consumer',
-  stringValue: topic.topicArn,
+// Main-region resource consuming the twin's value — stands in for the
+// CloudFront distribution.
+const dist = new ssm.StringParameter(stack, 'DistStandIn', { stringValue: cert.topicArn });
+
+// Group (us-east-1, renamed) referencing back into the main stack — stands in
+// for a CloudWatch alarm on CloudFront metrics (group -> main). Renaming the
+// group exercises the groupStackNames override end-to-end.
+new ssm.StringParameter(stack.regionScope('us-east-1', { group: 'Alarms' }), 'AlarmStandIn', {
+  parameterName: '/cdk-multi-region-stack/integ-rename-v2/alarm',
+  stringValue: dist.parameterName,
 });
 
 new IntegTest(app, 'MultiRegionStackRenameTest', {
-  testCases: [stack],
+  // The group is the most-downstream stack, so deploying it pulls in the main
+  // stack and the twin through dependencies — the whole renamed chain, in order.
+  testCases: [stack.regionScope('us-east-1', { group: 'Alarms' })],
   // Pin the region so the cross-region wiring is guaranteed regardless of
   // the credentials' default region.
   regions: ['ap-northeast-1'],
@@ -41,5 +55,5 @@ new IntegTest(app, 'MultiRegionStackRenameTest', {
 
 // No API-call assertions here for the same reason as integ.multi-region-stack:
 // the assertions stack cannot be pinned to a specific region. Successful
-// deployment already proves the reference resolves against the twin's
-// overridden name.
+// deployment already proves both reference directions resolve against the
+// twin's and group's overridden names.
