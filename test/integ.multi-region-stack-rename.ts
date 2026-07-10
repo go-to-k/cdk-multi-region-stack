@@ -16,7 +16,7 @@ const app = new App();
 const stack = new MultiRegionStack(app, 'MultiRegionStackRenameInteg', {
   env: { region: 'ap-northeast-1' },
   stackName: 'MrsRenameInteg-Tokyo',
-  regionStackNames: { 'us-east-1': 'MrsRenameInteg-Virginia' },
+  regionStackNames: { 'us-east-1': { stackName: 'MrsRenameInteg-Virginia' } },
 });
 
 // Twin (us-east-1) with an independent name — stands in for an ACM

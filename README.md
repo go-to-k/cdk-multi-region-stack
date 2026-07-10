@@ -134,14 +134,17 @@ Details:
 If you already run this workload as separate hand-split stacks with **different names per region** — e.g. `App-Tokyo` in `ap-northeast-1` and `App-Virginia` in `us-east-1` — the default shared-name behavior would create brand-new stacks and orphan the deployed ones. To adopt `MultiRegionStack` **in place**, name each stack to match what is already deployed:
 
 - Set the main stack's name with the normal `stackName` prop.
-- Declare each twin's name in the `regionStackNames` prop, keyed by `<region>` (or `<region>/<group>` for a group).
+- Declare the other regions' names in the `regionStackNames` prop, keyed by region — the region's default twin in `stackName`, and any groups in `groupStackNames`.
 
 ```ts
 const stack = new MultiRegionStack(app, 'MyApp', {
   env: { account: '123456789012', region: 'ap-northeast-1' },
   stackName: 'App-Tokyo', // matches the existing main-region stack
   regionStackNames: {
-    'us-east-1': 'App-Virginia', // matches the existing us-east-1 stack
+    'us-east-1': {
+      stackName: 'App-Virginia', // matches the existing us-east-1 stack
+      // groupStackNames: { Alarms: 'App-Virginia-Alarms' }, // if you use groups
+    },
   },
 });
 
@@ -157,9 +160,9 @@ new cloudfront.Distribution(stack, 'Dist', { defaultBehavior: { origin }, certif
 Because CloudFormation identifies a stack by `(name, region, account)`, matching the names lets `cdk deploy` update the existing stacks rather than replace them. Notes:
 
 - Names are declared on the stack, not passed at each `regionScope()` call, so `regionScope()` stays a pure, order-independent accessor: the same call always resolves to the same stack.
-- The name is used **verbatim** — for a group, key it `<region>/<group>` and pass the full name (the `-<group>` suffix is NOT appended).
+- The name is used **verbatim** — a group's name comes from `groupStackNames` keyed by group name (the `-<group>` suffix is NOT appended); a group with no entry keeps its derived `<stackName>-<group>` name.
 - The shared name is only a convention, so overriding works under every reference strength, `weak` included: the main stack embeds `Fn::GetStackOutput` with the twin's overridden name.
-- Each name follows the same rules as a group (starts with a letter; letters, digits and hyphens; ≤ 128 chars). Two stacks with the same name in the same region are rejected, and a bare `<region>` key for the stack's own region is rejected — use the `stackName` prop for the main stack.
+- Each name follows the same rules as a group (starts with a letter; letters, digits and hyphens; ≤ 128 chars). Two stacks with the same name in the same region are rejected, and a `stackName` for the stack's own region is rejected — use the top-level `stackName` prop for the main stack (own-region groups may still be named here).
 - **Still run `cdk diff` per stack before deploying** and confirm it shows updates, not replacements, especially for the main-region resources whose stack you renamed.
 
 ## Conditionally skipping a region
