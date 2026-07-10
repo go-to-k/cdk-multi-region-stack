@@ -1,13 +1,13 @@
 {
-  "/MultiRegionStackRenameInteg-us-east-1-Alarms": [
+  "/MrsRenameV2-Virginia-Alarms": [
     {
       "type": "aws:cdk:warning",
-      "data": "'MultiRegionStackRenameInteg-us-east-1-Alarms' is not a dependency of 'MultiRegionStackRenameInteg', so 'cdk deploy MultiRegionStackRenameInteg' will NOT deploy it (the CLI extends the selection to dependencies only). Deploy with a wildcard: cdk deploy 'MultiRegionStackRenameInteg*' [ack: cdk-multi-region-stack:stackNotDeployedWithMainStack]",
+      "data": "'MrsRenameV2-Virginia-Alarms' is not a dependency of 'MultiRegionStackRenameInteg', so 'cdk deploy MultiRegionStackRenameInteg' will NOT deploy it (the CLI extends the selection to dependencies only). Deploy with a wildcard: cdk deploy 'MultiRegionStackRenameInteg*' [ack: cdk-multi-region-stack:stackNotDeployedWithMainStack]",
       "trace": [
         "Annotations.addMessage (/Users/goto/pc/github/cdk-multi-region-stack/node_modules/.pnpm/aws-cdk-lib@2.254.0_constructs@10.5.1/node_modules/aws-cdk-lib/core/lib/annotations.js:1:2399)",
         "Annotations.addWarningV2 (/Users/goto/pc/github/cdk-multi-region-stack/node_modules/.pnpm/aws-cdk-lib@2.254.0_constructs@10.5.1/node_modules/aws-cdk-lib/core/lib/annotations.js:1:1087)",
-        "MultiRegionStack.warnAboutStacksNotDeployedWithMain (/Users/goto/pc/github/cdk-multi-region-stack/src/multi-region-stack.ts:346:30)",
-        "Object.validate (/Users/goto/pc/github/cdk-multi-region-stack/src/multi-region-stack.ts:228:14)",
+        "MultiRegionStack.warnAboutStacksNotDeployedWithMain (/Users/goto/pc/github/cdk-multi-region-stack/src/multi-region-stack.ts:411:30)",
+        "Object.validate (/Users/goto/pc/github/cdk-multi-region-stack/src/multi-region-stack.ts:290:14)",
         "/Users/goto/pc/github/cdk-multi-region-stack/node_modules/.pnpm/constructs@10.5.1/node_modules/constructs/src/construct.ts:424:53",
         "Array.flatMap (<anonymous>)",
         "Node.validate (/Users/goto/pc/github/cdk-multi-region-stack/node_modules/.pnpm/constructs@10.5.1/node_modules/constructs/src/construct.ts:424:38)",
@@ -25,13 +25,13 @@
       ]
     }
   ],
-  "/MultiRegionStackRenameInteg-us-east-1-Alarms/Placeholder": [
+  "/MrsRenameV2-Virginia-Alarms/Placeholder": [
     {
       "type": "aws:cdk:logicalId",
       "data": "Placeholder"
     }
   ],
-  "/MultiRegionStackRenameInteg-us-east-1-Alarms/AlarmStandIn": [
+  "/MrsRenameV2-Virginia-Alarms/AlarmStandIn": [
     {
       "type": "aws:cdk:analytics:construct",
       "data": {
@@ -40,31 +40,31 @@
       }
     }
   ],
-  "/MultiRegionStackRenameInteg-us-east-1-Alarms/Custom::CrossRegionExportReaderCustomResourceProvider": [
+  "/MrsRenameV2-Virginia-Alarms/Custom::CrossRegionExportReaderCustomResourceProvider": [
     {
       "type": "aws:cdk:is-custom-resource-handler-customResourceProvider",
       "data": true
     }
   ],
-  "/MultiRegionStackRenameInteg-us-east-1-Alarms/BootstrapVersion": [
+  "/MrsRenameV2-Virginia-Alarms/BootstrapVersion": [
     {
       "type": "aws:cdk:logicalId",
       "data": "BootstrapVersion"
     }
   ],
-  "/MultiRegionStackRenameInteg-us-east-1-Alarms/CheckBootstrapVersion": [
+  "/MrsRenameV2-Virginia-Alarms/CheckBootstrapVersion": [
     {
       "type": "aws:cdk:logicalId",
       "data": "CheckBootstrapVersion"
     }
   ],
-  "/MultiRegionStackRenameInteg-us-east-1-Alarms/AlarmStandIn/Resource": [
+  "/MrsRenameV2-Virginia-Alarms/AlarmStandIn/Resource": [
     {
       "type": "aws:cdk:logicalId",
       "data": "AlarmStandIn9FDEB444"
     }
   ],
-  "/MultiRegionStackRenameInteg-us-east-1-Alarms/ExportsReader/Resource": [
+  "/MrsRenameV2-Virginia-Alarms/ExportsReader/Resource": [
     {
       "type": "aws:cdk:analytics:construct",
       "data": "*"
@@ -74,19 +74,19 @@
       "data": "*"
     }
   ],
-  "/MultiRegionStackRenameInteg-us-east-1-Alarms/Custom::CrossRegionExportReaderCustomResourceProvider/Role": [
+  "/MrsRenameV2-Virginia-Alarms/Custom::CrossRegionExportReaderCustomResourceProvider/Role": [
     {
       "type": "aws:cdk:logicalId",
       "data": "CustomCrossRegionExportReaderCustomResourceProviderRole10531BBD"
     }
   ],
-  "/MultiRegionStackRenameInteg-us-east-1-Alarms/Custom::CrossRegionExportReaderCustomResourceProvider/Handler": [
+  "/MrsRenameV2-Virginia-Alarms/Custom::CrossRegionExportReaderCustomResourceProvider/Handler": [
     {
       "type": "aws:cdk:logicalId",
       "data": "CustomCrossRegionExportReaderCustomResourceProviderHandler46647B68"
     }
   ],
-  "/MultiRegionStackRenameInteg-us-east-1-Alarms/ExportsReader/Resource/Default": [
+  "/MrsRenameV2-Virginia-Alarms/ExportsReader/Resource/Default": [
     {
       "type": "aws:cdk:logicalId",
       "data": "ExportsReader8B249524"

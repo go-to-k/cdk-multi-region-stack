@@ -3,24 +3,60 @@ import { CfnWaitConditionHandle } from 'aws-cdk-lib/aws-cloudformation';
 import { Construct } from 'constructs';
 
 /**
- * Overrides for the stack names in a single region, used in
- * `MultiRegionStackProps.regionStackNames`.
+ * Overrides for a single sibling stack (a region's default twin, or one of its
+ * groups), used in `MultiRegionStackProps.regionStackOverrides`.
  */
-export interface RegionStackNames {
+export interface StackOverride {
   /**
-   * Name of the region's default twin, instead of the main stack's name
-   * (which every twin shares by default).
+   * CloudFormation stack name of this stack, instead of the derived default
+   * (the main stack's name for a default twin, `<main stack name>-<group>` for
+   * a group).
    *
-   * @default - the main stack's name
+   * @default - the derived name (the main stack's name, plus `-<group>` for a group)
    */
   readonly stackName?: string;
 
   /**
-   * Names of groups in the region, keyed by group name.
+   * Construct ID of this sibling stack, instead of the derived default
+   * (`<main stack construct id>-<region>` for a default twin, plus `-<group>`
+   * for a group).
    *
-   * @default - each group uses the derived name (`<main stack name>-<group>`)
+   * The construct ID is part of every construct path in the stack, so any
+   * identifier derived from the full path — `Names.uniqueId`, `node.addr`, and
+   * the physical names generated for `PhysicalName.GENERATE_IF_NEEDED`
+   * (which CDK applies to cross-region-referenced resources) — changes when the
+   * construct ID changes, forcing those resources to be REPLACED. When adopting
+   * `MultiRegionStack` for an already-deployed stack, set this to that stack's
+   * existing construct ID (and keep the surrounding construct tree identical)
+   * so the paths, and therefore those names, stay stable.
+   *
+   * @default - the derived id (`<main stack construct id>-<region>`, plus `-<group>` for a group)
    */
-  readonly groupStackNames?: { [group: string]: string };
+  readonly constructId?: string;
+}
+
+/**
+ * Overrides for the sibling stacks in a single region, used in
+ * `MultiRegionStackProps.regionStackOverrides`. The region's default twin and its
+ * groups are configured separately so `stackName` and `constructId` stay
+ * together for each stack.
+ */
+export interface RegionStackOverrides {
+  /**
+   * Overrides for the region's default twin (the stack returned by
+   * `regionScope(region)` without a group).
+   *
+   * @default - the twin derives its name/id from the main stack
+   */
+  readonly defaultStack?: StackOverride;
+
+  /**
+   * Overrides for the region's groups, keyed by group name (the group returned
+   * by `regionScope(region, { group })`).
+   *
+   * @default - each group derives its name/id from the main stack
+   */
+  readonly groupStacks?: { [group: string]: StackOverride };
 }
 
 /**
@@ -32,31 +68,43 @@ export interface RegionStackNames {
  */
 export interface MultiRegionStackProps extends StackProps {
   /**
-   * Overrides the CloudFormation stack names of the twins/groups, instead of
-   * the default — the main stack's name (`<stackName>`) for a region's twin,
-   * `<stackName>-<group>` for a group. Keyed by region — the same string you
-   * pass to `regionScope(region)` — with the region's default twin and its
-   * groups named separately.
+   * Overrides the CloudFormation stack name and/or construct ID of the
+   * twins/groups, instead of the defaults derived from the main stack — the
+   * main stack's name (`<stackName>`) and `<mainId>-<region>` for a region's
+   * twin, plus `-<group>` for a group. Keyed by region — the same string you
+   * pass to `regionScope(region)` — with the region's default twin
+   * (`defaultStack`) and its groups (`groupStacks`) configured separately.
    *
-   * Declaring the names here — rather than at each `regionScope()` call —
+   * Declaring the overrides here — rather than at each `regionScope()` call —
    * keeps `regionScope()` a pure, order-independent accessor: the same call
    * always resolves to the same stack no matter where or how often it is
    * invoked.
    *
    * The main use case is adopting `MultiRegionStack` for a workload already
-   * deployed as separate hand-split stacks with different names per region
-   * (e.g. `App-Tokyo` in the main region, `App-Virginia` in us-east-1):
-   * matching those names lets CloudFormation update the existing stacks in
-   * place instead of creating new ones and orphaning the old ones.
+   * deployed as separate hand-split stacks (e.g. `App-Tokyo` in the main
+   * region, `App-Virginia` in us-east-1). Two things must match the existing
+   * deployment for an in-place update rather than a replacement:
+   * - `stackName` — CloudFormation identifies a stack by `(name, region,
+   *   account)`, so a matching name updates the existing stack instead of
+   *   creating a new one and orphaning the old one.
+   * - `constructId` — the twin's construct ID (default `<mainId>-<region>`)
+   *   feeds every construct path in the stack, so it changes any full-path
+   *   derived identifier (`Names.uniqueId`, `node.addr`,
+   *   `PhysicalName.GENERATE_IF_NEEDED` names). Match the existing stack's
+   *   construct ID to keep those stable and avoid replacing those resources.
+   *   `stackName` alone does NOT prevent this — the generated names embed the
+   *   construct path, not just the stack name.
    *
    * ```ts
    * new MultiRegionStack(app, 'MyApp', {
    *   env: { region: 'ap-northeast-1' },
    *   stackName: 'App-Tokyo',
-   *   regionStackNames: {
+   *   regionStackOverrides: {
    *     'us-east-1': {
-   *       stackName: 'App-Virginia',
-   *       groupStackNames: { Alarms: 'App-Virginia-Alarms' },
+   *       defaultStack: { stackName: 'App-Virginia', constructId: 'App-Virginia' },
+   *       groupStacks: {
+   *         Alarms: { stackName: 'App-Virginia-Alarms', constructId: 'App-Virginia-Alarms' },
+   *       },
    *     },
    *   },
    * });
@@ -67,15 +115,18 @@ export interface MultiRegionStackProps extends StackProps {
    * reference strength (`strong`/`weak`/`both`). For weak, the main stack
    * embeds `Fn::GetStackOutput` with the twin's actual (overridden) name.
    *
-   * Each name must start with a letter and contain only letters, digits and
-   * hyphens, and stay within 128 characters. Two stacks with the same name
-   * in the same region are rejected. A `stackName` for the stack's own region
-   * is rejected — set the main stack's name via the top-level `stackName`
-   * prop instead — though groups in the own region may still be named here.
+   * Each `stackName` must start with a letter and contain only letters, digits
+   * and hyphens, and stay within 128 characters; each `constructId` must be a
+   * non-empty string without `/`. Two stacks with the same name in the same
+   * region — or two constructs with the same ID — are rejected. A `stackName`
+   * or `constructId` for the stack's own region is rejected — set the main
+   * stack's name via the top-level `stackName` prop and its construct ID via
+   * the `id` argument — though groups in the own region may still be
+   * overridden here.
    *
-   * @default - every twin/group derives its name from the main stack's name
+   * @default - every twin/group derives its name and construct ID from the main stack
    */
-  readonly regionStackNames?: { [region: string]: RegionStackNames };
+  readonly regionStackOverrides?: { [region: string]: RegionStackOverrides };
 }
 
 /**
@@ -128,6 +179,17 @@ const OWNERS = new WeakMap<Stack, MultiRegionStack>();
 
 function familyOf(stack: Stack): MultiRegionStack | undefined {
   return stack instanceof MultiRegionStack ? stack : OWNERS.get(stack);
+}
+
+/**
+ * Whether an override actually declares something (a name or a construct ID),
+ * so an empty `{}` does not count as a used entry for the unused-entry warning.
+ */
+function isDeclared(override: StackOverride | undefined): boolean {
+  return (
+    override !== undefined &&
+    (override.stackName !== undefined || override.constructId !== undefined)
+  );
 }
 
 /**
@@ -206,12 +268,12 @@ export class MultiRegionStack extends Stack {
   private readonly warnedStacks = new Set<Stack>();
   private readonly warnedUnusedNameKeys = new Set<string>();
   private readonly inheritedProps: MultiRegionStackProps;
-  private readonly regionStackNames: { [region: string]: RegionStackNames };
+  private readonly regionStackOverrides: { [region: string]: RegionStackOverrides };
 
   constructor(scope: Construct, id: string, props: MultiRegionStackProps) {
     super(scope, id, { ...props, crossRegionReferences: true });
     this.inheritedProps = props;
-    this.regionStackNames = props.regionStackNames ?? {};
+    this.regionStackOverrides = props.regionStackOverrides ?? {};
 
     if (Token.isUnresolved(this.region)) {
       throw new Error(
@@ -219,14 +281,14 @@ export class MultiRegionStack extends Stack {
       );
     }
 
-    this.validateRegionStackNames();
+    this.validateRegionStackOverrides();
 
     // Runs after prepareApp (which resolves cross-stack references into
     // stack dependencies), so the dependency graph is final here.
     this.node.addValidation({
       validate: () => {
         this.warnAboutStacksNotDeployedWithMain();
-        this.warnAboutUnusedRegionStackNames();
+        this.warnAboutUnusedRegionStackOverrides();
         return [];
       },
     });
@@ -250,12 +312,13 @@ export class MultiRegionStack extends Stack {
    * references (see `RegionScopeOptions.group`). A group in the stack's own
    * region creates a sibling stack in the main region.
    *
-   * A region's twin name comes from the `regionStackNames` prop (keyed by
-   * region); a region or group with no entry falls back to the default (the
-   * main stack's name, plus `-<group>` for a group).
-   * Because the name is declared on the stack, not passed here,
-   * `regionScope()` stays a pure accessor: the same call always resolves to
-   * the same stack regardless of call order.
+   * A twin's stack name and construct ID come from the `regionStackOverrides` prop
+   * (keyed by region, then `defaultStack`/`groupStacks`); a region or group
+   * with no entry falls back to the defaults (the main stack's name and
+   * `<mainId>-<region>`, each plus `-<group>` for a group). Because these are
+   * declared on the stack, not passed here, `regionScope()` stays a pure
+   * accessor: the same call always resolves to the same stack regardless of
+   * call order.
    *
    * @param region The region in which constructs created in this scope will be provisioned (e.g. `us-east-1`)
    * @param options Options, e.g. a `group` for an additional stack in the region
@@ -280,15 +343,17 @@ export class MultiRegionStack extends Stack {
       this.validateGroupName(group);
     }
     const suffix = group === undefined ? '' : `-${group}`;
-    const regionNames = this.regionStackNames[region];
+    const regionCfg = this.regionStackOverrides[region];
     const override =
-      group === undefined ? regionNames?.stackName : regionNames?.groupStackNames?.[group];
-    const stackName = override ?? `${this.stackName}${suffix}`;
+      group === undefined ? regionCfg?.defaultStack : regionCfg?.groupStacks?.[group];
+    const stackName = override?.stackName ?? `${this.stackName}${suffix}`;
+    const constructId = override?.constructId ?? `${this.node.id}-${region}${suffix}`;
     this.validateStackNameLength(stackName);
     this.validateNoStackNameCollision(region, stackName);
+    this.validateNoConstructIdCollision(constructId);
 
     const parent = Stage.of(this) ?? this.node.root;
-    twin = new TwinStack(parent as Construct, `${this.node.id}-${region}${suffix}`, {
+    twin = new TwinStack(parent as Construct, constructId, {
       stackName,
       env: {
         account: Token.isUnresolved(this.account) ? undefined : this.account,
@@ -354,24 +419,24 @@ export class MultiRegionStack extends Stack {
   }
 
   /**
-   * A `regionStackNames` entry only takes effect when the matching twin is
+   * A `regionStackOverrides` entry only takes effect when the matching twin is
    * created (`regionScope()` is called for it). An entry with no matching
    * twin is either a typo in the region/group or a region intentionally
    * skipped in this environment — warn so a silently-ineffective override
    * (which would defeat an in-place migration) does not go unnoticed. The Set
    * guard keeps the warning from being appended again on repeated synth.
    */
-  private warnAboutUnusedRegionStackNames(): void {
-    for (const [region, names] of Object.entries(this.regionStackNames)) {
-      if (names.stackName !== undefined && !this.twins.has(region)) {
-        this.warnUnusedName(region, `regionStackNames['${region}'].stackName`, region);
+  private warnAboutUnusedRegionStackOverrides(): void {
+    for (const [region, cfg] of Object.entries(this.regionStackOverrides)) {
+      if (isDeclared(cfg.defaultStack) && !this.twins.has(region)) {
+        this.warnUnusedOverride(region, `regionStackOverrides['${region}'].defaultStack`, region);
       }
-      for (const group of Object.keys(names.groupStackNames ?? {})) {
+      for (const [group, override] of Object.entries(cfg.groupStacks ?? {})) {
         const key = `${region}/${group}`;
-        if (!this.twins.has(key)) {
-          this.warnUnusedName(
+        if (isDeclared(override) && !this.twins.has(key)) {
+          this.warnUnusedOverride(
             key,
-            `regionStackNames['${region}'].groupStackNames['${group}']`,
+            `regionStackOverrides['${region}'].groupStacks['${group}']`,
             region,
             group,
           );
@@ -380,7 +445,7 @@ export class MultiRegionStack extends Stack {
     }
   }
 
-  private warnUnusedName(key: string, label: string, region: string, group?: string): void {
+  private warnUnusedOverride(key: string, label: string, region: string, group?: string): void {
     if (this.warnedUnusedNameKeys.has(key)) {
       return;
     }
@@ -391,7 +456,7 @@ export class MultiRegionStack extends Stack {
         : `regionScope('${region}', { group: '${group}' })`;
     Annotations.of(this).addWarningV2(
       UNUSED_NAME_WARNING_ID,
-      `${label} is declared but unused: ${call} is never called, so this name has no effect. ` +
+      `${label} is declared but unused: ${call} is never called, so this override has no effect. ` +
         'Remove it, or fix a typo in the region/group. ' +
         '(If the region is intentionally skipped in this environment, acknowledge this warning.)',
     );
@@ -406,28 +471,58 @@ export class MultiRegionStack extends Stack {
   }
 
   /**
-   * Validates the `regionStackNames` overrides up front (independent of which
-   * regions are actually used): each name's format and length, each group
-   * key's format, and that the stack's own region is not renamed (which would
-   * rename the main stack; its groups may still be named).
+   * Validates the `regionStackOverrides` overrides up front (independent of which
+   * regions are actually used): each stackName's format and length, each
+   * constructId's format, each group key's format, and that the stack's own
+   * region does not override the default twin (which would collide with the
+   * main stack itself; its groups may still be overridden).
    */
-  private validateRegionStackNames(): void {
-    for (const [region, names] of Object.entries(this.regionStackNames)) {
-      if (names.stackName !== undefined) {
-        if (region === this.region) {
-          throw new Error(
-            `regionStackNames['${region}'].stackName cannot rename the main stack (its own region); set its name via the \`stackName\` prop instead`,
-          );
-        }
-        this.validateOverrideName(`regionStackNames['${region}'].stackName`, names.stackName);
+  private validateRegionStackOverrides(): void {
+    for (const [region, cfg] of Object.entries(this.regionStackOverrides)) {
+      if (cfg.defaultStack !== undefined) {
+        this.validateOverride(`regionStackOverrides['${region}'].defaultStack`, cfg.defaultStack, {
+          isOwnRegionDefault: region === this.region,
+        });
       }
-      for (const [group, name] of Object.entries(names.groupStackNames ?? {})) {
+      for (const [group, override] of Object.entries(cfg.groupStacks ?? {})) {
         this.validateGroupName(group);
-        this.validateOverrideName(
-          `regionStackNames['${region}'].groupStackNames['${group}']`,
-          name,
+        this.validateOverride(
+          `regionStackOverrides['${region}'].groupStacks['${group}']`,
+          override,
+          {
+            isOwnRegionDefault: false,
+          },
         );
       }
+    }
+  }
+
+  /**
+   * Validates a single `stackName`/`constructId` override. The default twin of
+   * the stack's own region is rejected: it would refer to the main stack,
+   * whose name comes from the `stackName` prop and whose construct ID comes
+   * from the `id` argument. Groups (in any region) are always allowed.
+   */
+  private validateOverride(
+    label: string,
+    override: StackOverride,
+    opts: { isOwnRegionDefault: boolean },
+  ): void {
+    if (opts.isOwnRegionDefault && override.stackName !== undefined) {
+      throw new Error(
+        `${label}.stackName cannot rename the main stack (its own region); set its name via the \`stackName\` prop instead`,
+      );
+    }
+    if (opts.isOwnRegionDefault && override.constructId !== undefined) {
+      throw new Error(
+        `${label}.constructId cannot change the main stack's construct ID (its own region); set it via the \`id\` argument instead`,
+      );
+    }
+    if (override.stackName !== undefined) {
+      this.validateOverrideName(`${label}.stackName`, override.stackName);
+    }
+    if (override.constructId !== undefined) {
+      this.validateConstructId(`${label}.constructId`, override.constructId);
     }
   }
 
@@ -438,6 +533,14 @@ export class MultiRegionStack extends Stack {
       );
     }
     this.validateStackNameLength(name);
+  }
+
+  private validateConstructId(label: string, constructId: string): void {
+    if (constructId.length === 0 || constructId.includes('/')) {
+      throw new Error(
+        `${label} must be a non-empty string without '/' (it is a construct ID), got: '${constructId}'`,
+      );
+    }
   }
 
   private validateStackNameLength(stackName: string): void {
@@ -459,6 +562,23 @@ export class MultiRegionStack extends Stack {
     if (mainCollides || twinCollides) {
       throw new Error(
         `regionScope() would create a second stack named '${stackName}' in region '${region}'; stack names must be unique per region`,
+      );
+    }
+  }
+
+  /**
+   * Twins/groups are siblings of the main stack (all under the same enclosing
+   * Stage or App), so their construct IDs share one namespace with the main
+   * stack. CDK would reject a duplicate ID with an opaque error; check up front
+   * for a message that names the override to fix. Unlike stack names, construct
+   * IDs must be unique across regions too (they live under one parent).
+   */
+  private validateNoConstructIdCollision(constructId: string): void {
+    const mainCollides = constructId === this.node.id;
+    const twinCollides = [...this.twins.values()].some((t) => t.node.id === constructId);
+    if (mainCollides || twinCollides) {
+      throw new Error(
+        `regionScope() would create a second construct with id '${constructId}'; construct ids must be unique among the main stack and its twins/groups`,
       );
     }
   }

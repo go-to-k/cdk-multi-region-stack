@@ -3,7 +3,7 @@
   "testCases": {
     "MultiRegionStackRenameTest/DefaultTest": {
       "stacks": [
-        "MultiRegionStackRenameInteg-us-east-1-Alarms"
+        "MrsRenameV2-Virginia-Alarms"
       ],
       "regions": [
         "ap-northeast-1"
