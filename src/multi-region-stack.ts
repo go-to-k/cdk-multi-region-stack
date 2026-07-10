@@ -33,8 +33,8 @@ export interface RegionStackNames {
 export interface MultiRegionStackProps extends StackProps {
   /**
    * Overrides the CloudFormation stack names of the twins/groups, instead of
-   * the default shared name (`<stackName>` for a region's twin,
-   * `<stackName>-<group>` for a group). Keyed by region — the same string you
+   * the default — the main stack's name (`<stackName>`) for a region's twin,
+   * `<stackName>-<group>` for a group. Keyed by region — the same string you
    * pass to `regionScope(region)` — with the region's default twin and its
    * groups named separately.
    *
@@ -62,8 +62,8 @@ export interface MultiRegionStackProps extends StackProps {
    * });
    * ```
    *
-   * The shared stack name is a convention, not a technical requirement:
-   * cross-region references work with any concrete name under every
+   * Sharing the main stack's name is a convention, not a technical
+   * requirement: cross-region references work with any concrete name under every
    * reference strength (`strong`/`weak`/`both`). For weak, the main stack
    * embeds `Fn::GetStackOutput` with the twin's actual (overridden) name.
    *
@@ -73,7 +73,7 @@ export interface MultiRegionStackProps extends StackProps {
    * is rejected — set the main stack's name via the top-level `stackName`
    * prop instead — though groups in the own region may still be named here.
    *
-   * @default - every twin/group uses the shared name
+   * @default - every twin/group derives its name from the main stack's name
    */
   readonly regionStackNames?: { [region: string]: RegionStackNames };
 }
@@ -165,8 +165,8 @@ function enrichCyclicReferenceError(e: unknown, consumer: Stack, target: Stack):
  * A Stack that can place some of its resources in other regions.
  *
  * Calling `regionScope(region)` returns a scope that belongs to a "twin"
- * stack: a sibling Stack with the SAME stack name deployed to the given
- * region. Constructs created in that scope are provisioned in that region,
+ * stack: a sibling Stack with the same stack name as the main stack, deployed
+ * to the given region. Constructs created in that scope are provisioned in that region,
  * while references between the twin and the main stack are wired through
  * CDK's built-in cross-region reference machinery (`crossRegionReferences`).
  *
@@ -248,7 +248,8 @@ export class MultiRegionStack extends Stack {
    * region creates a sibling stack in the main region.
    *
    * A region's twin name comes from the `regionStackNames` prop (keyed by
-   * region); a region with no entry, and every group, uses the shared name.
+   * region); a region or group with no entry falls back to the default (the
+   * main stack's name, plus `-<group>` for a group).
    * Because the name is declared on the stack, not passed here,
    * `regionScope()` stays a pure accessor: the same call always resolves to
    * the same stack regardless of call order.
