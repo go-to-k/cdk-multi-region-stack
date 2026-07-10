@@ -233,7 +233,9 @@ export class MultiRegionStack extends Stack {
       if (stackNameOverride !== undefined && twin.stackName !== stackNameOverride) {
         throw new Error(
           `regionScope() was already called for ${group === undefined ? `region '${region}'` : `region '${region}' group '${group}'`} ` +
-            `with stack name '${twin.stackName}'; it cannot be changed to '${stackNameOverride}'`,
+            `with stack name '${twin.stackName}'; it cannot be changed to '${stackNameOverride}'. ` +
+            `To add a separate stack in '${region}', pass a distinct \`group\`: ` +
+            `regionScope('${region}', { group: '...', stackName: '${stackNameOverride}' })`,
         );
       }
       return twin;

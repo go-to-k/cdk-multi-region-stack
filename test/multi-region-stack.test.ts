@@ -281,11 +281,15 @@ describe('stackName override', () => {
     expect(stack.regionScope('us-east-1')).toBe(a);
   });
 
-  test('re-requesting a region with a different name is rejected', () => {
+  test('re-requesting a region with a different name is rejected, hinting to use a group', () => {
     const stack = new MultiRegionStack(new App(), 'MyStack', { env });
     stack.regionScope('us-east-1', { stackName: 'App-Virginia' });
     expect(() => stack.regionScope('us-east-1', { stackName: 'Other' })).toThrow(
       /already called for region 'us-east-1' with stack name 'App-Virginia'/,
+    );
+    // the message points at the fix: a distinct group creates a second stack
+    expect(() => stack.regionScope('us-east-1', { stackName: 'Other' })).toThrow(
+      /pass a distinct `group`/,
     );
   });
 
