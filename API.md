@@ -7,8 +7,8 @@
 A Stack that can place some of its resources in other regions.
 
 Calling `regionScope(region)` returns a scope that belongs to a "twin"
-stack: a sibling Stack with the SAME stack name deployed to the given
-region. Constructs created in that scope are provisioned in that region,
+stack: a sibling Stack with the same stack name as the main stack, deployed
+to the given region. Constructs created in that scope are provisioned in that region,
 while references between the twin and the main stack are wired through
 CDK's built-in cross-region reference machinery (`crossRegionReferences`).
 
@@ -572,6 +572,13 @@ cyclic reference, i.e. that twin also holds a resource the main stack
 references (see `RegionScopeOptions.group`). A group in the stack's own
 region creates a sibling stack in the main region.
 
+A region's twin name comes from the `regionStackNames` prop (keyed by
+region); a region or group with no entry falls back to the default (the
+main stack's name, plus `-<group>` for a group).
+Because the name is declared on the stack, not passed here,
+`regionScope()` stays a pure accessor: the same call always resolves to
+the same stack regardless of call order.
+
 ###### `region`<sup>Required</sup> <a name="region" id="cdk-multi-region-stack.MultiRegionStack.regionScope.parameter.region"></a>
 
 - *Type:* string
@@ -1076,6 +1083,7 @@ const multiRegionStackProps: MultiRegionStackProps = { ... }
 | <code><a href="#cdk-multi-region-stack.MultiRegionStackProps.property.synthesizer">synthesizer</a></code> | <code>aws-cdk-lib.IStackSynthesizer</code> | Synthesis method to use while deploying this stack. |
 | <code><a href="#cdk-multi-region-stack.MultiRegionStackProps.property.tags">tags</a></code> | <code>{[ key: string ]: string}</code> | Tags that will be applied to the Stack. |
 | <code><a href="#cdk-multi-region-stack.MultiRegionStackProps.property.terminationProtection">terminationProtection</a></code> | <code>boolean</code> | Whether to enable termination protection for this stack. |
+| <code><a href="#cdk-multi-region-stack.MultiRegionStackProps.property.regionStackNames">regionStackNames</a></code> | <code>{[ key: string ]: <a href="#cdk-multi-region-stack.RegionStackNames">RegionStackNames</a>}</code> | Overrides the CloudFormation stack names of the twins/groups, instead of the default — the main stack's name (`<stackName>`) for a region's twin, `<stackName>-<group>` for a group. |
 
 ---
 
@@ -1323,6 +1331,58 @@ Whether to enable termination protection for this stack.
 
 ---
 
+##### `regionStackNames`<sup>Optional</sup> <a name="regionStackNames" id="cdk-multi-region-stack.MultiRegionStackProps.property.regionStackNames"></a>
+
+```typescript
+public readonly regionStackNames: {[ key: string ]: RegionStackNames};
+```
+
+- *Type:* {[ key: string ]: <a href="#cdk-multi-region-stack.RegionStackNames">RegionStackNames</a>}
+- *Default:* every twin/group derives its name from the main stack's name
+
+Overrides the CloudFormation stack names of the twins/groups, instead of the default — the main stack's name (`<stackName>`) for a region's twin, `<stackName>-<group>` for a group.
+
+Keyed by region — the same string you
+pass to `regionScope(region)` — with the region's default twin and its
+groups named separately.
+
+Declaring the names here — rather than at each `regionScope()` call —
+keeps `regionScope()` a pure, order-independent accessor: the same call
+always resolves to the same stack no matter where or how often it is
+invoked.
+
+The main use case is adopting `MultiRegionStack` for a workload already
+deployed as separate hand-split stacks with different names per region
+(e.g. `App-Tokyo` in the main region, `App-Virginia` in us-east-1):
+matching those names lets CloudFormation update the existing stacks in
+place instead of creating new ones and orphaning the old ones.
+
+```ts
+new MultiRegionStack(app, 'MyApp', {
+  env: { region: 'ap-northeast-1' },
+  stackName: 'App-Tokyo',
+  regionStackNames: {
+    'us-east-1': {
+      stackName: 'App-Virginia',
+      groupStackNames: { Alarms: 'App-Virginia-Alarms' },
+    },
+  },
+});
+```
+
+Sharing the main stack's name is a convention, not a technical
+requirement: cross-region references work with any concrete name under every
+reference strength (`strong`/`weak`/`both`). For weak, the main stack
+embeds `Fn::GetStackOutput` with the twin's actual (overridden) name.
+
+Each name must start with a letter and contain only letters, digits and
+hyphens, and stay within 128 characters. Two stacks with the same name
+in the same region are rejected. A `stackName` for the stack's own region
+is rejected — set the main stack's name via the top-level `stackName`
+prop instead — though groups in the own region may still be named here.
+
+---
+
 ### RegionScopeOptions <a name="RegionScopeOptions" id="cdk-multi-region-stack.RegionScopeOptions"></a>
 
 Options for `MultiRegionStack.regionScope()`.
@@ -1376,6 +1436,53 @@ Note: a stack that is not a dependency of the main stack (e.g. a group
 whose resources reference the main stack) is NOT deployed by
 `cdk deploy <MainStack>` — deploy with a wildcard. A warning is
 emitted at synth time for such stacks.
+
+---
+
+### RegionStackNames <a name="RegionStackNames" id="cdk-multi-region-stack.RegionStackNames"></a>
+
+Overrides for the stack names in a single region, used in `MultiRegionStackProps.regionStackNames`.
+
+#### Initializer <a name="Initializer" id="cdk-multi-region-stack.RegionStackNames.Initializer"></a>
+
+```typescript
+import { RegionStackNames } from 'cdk-multi-region-stack'
+
+const regionStackNames: RegionStackNames = { ... }
+```
+
+#### Properties <a name="Properties" id="Properties"></a>
+
+| **Name** | **Type** | **Description** |
+| --- | --- | --- |
+| <code><a href="#cdk-multi-region-stack.RegionStackNames.property.groupStackNames">groupStackNames</a></code> | <code>{[ key: string ]: string}</code> | Names of groups in the region, keyed by group name. |
+| <code><a href="#cdk-multi-region-stack.RegionStackNames.property.stackName">stackName</a></code> | <code>string</code> | Name of the region's default twin, instead of the main stack's name (which every twin shares by default). |
+
+---
+
+##### `groupStackNames`<sup>Optional</sup> <a name="groupStackNames" id="cdk-multi-region-stack.RegionStackNames.property.groupStackNames"></a>
+
+```typescript
+public readonly groupStackNames: {[ key: string ]: string};
+```
+
+- *Type:* {[ key: string ]: string}
+- *Default:* each group uses the derived name (`<main stack name>-<group>`)
+
+Names of groups in the region, keyed by group name.
+
+---
+
+##### `stackName`<sup>Optional</sup> <a name="stackName" id="cdk-multi-region-stack.RegionStackNames.property.stackName"></a>
+
+```typescript
+public readonly stackName: string;
+```
+
+- *Type:* string
+- *Default:* the main stack's name
+
+Name of the region's default twin, instead of the main stack's name (which every twin shares by default).
 
 ---
 

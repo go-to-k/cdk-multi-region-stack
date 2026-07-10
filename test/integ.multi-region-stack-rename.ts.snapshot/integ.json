@@ -1,0 +1,17 @@
+{
+  "version": "53.0.0",
+  "testCases": {
+    "MultiRegionStackRenameTest/DefaultTest": {
+      "stacks": [
+        "MultiRegionStackRenameInteg-us-east-1-Alarms"
+      ],
+      "regions": [
+        "ap-northeast-1"
+      ],
+      "diffAssets": true,
+      "assertionStack": "MultiRegionStackRenameTest/DefaultTest/DeployAssert",
+      "assertionStackName": "MultiRegionStackRenameTestDefaultTestDeployAssert3839470E"
+    }
+  },
+  "minimumCliVersion": "2.1125.0"
+}
