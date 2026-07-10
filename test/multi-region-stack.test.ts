@@ -413,6 +413,98 @@ describe('regionStackNames (per-region name overrides)', () => {
     expect(usw2.stackName).toBe('Shared');
     expect(use1).not.toBe(usw2);
   });
+
+  test('a declared name whose twin is never created warns that it is unused', () => {
+    const stack = new MultiRegionStack(new App(), 'MyStack', {
+      env,
+      // typo: 'us-east-01' is never scoped, so the override is silently unused
+      regionStackNames: { 'us-east-01': { stackName: 'App-Virginia' } },
+    });
+    stack.regionScope('us-east-1'); // the real region
+
+    Annotations.fromStack(stack).hasWarning(
+      '*',
+      Match.stringLikeRegexp(
+        ".*regionStackNames\\['us-east-01'\\].stackName is declared but unused.*",
+      ),
+    );
+  });
+
+  test('a declared group name whose group is never created warns that it is unused', () => {
+    const stack = new MultiRegionStack(new App(), 'MyStack', {
+      env,
+      regionStackNames: { 'us-east-1': { groupStackNames: { Alarms: 'Custom' } } },
+    });
+    stack.regionScope('us-east-1'); // only the default twin, not the group
+
+    Annotations.fromStack(stack).hasWarning(
+      '*',
+      Match.stringLikeRegexp(".*groupStackNames\\['Alarms'\\] is declared but unused.*"),
+    );
+  });
+
+  test('declared names whose twins are created do not warn', () => {
+    const stack = new MultiRegionStack(new App(), 'MyStack', {
+      env,
+      regionStackNames: {
+        'us-east-1': { stackName: 'App-Virginia', groupStackNames: { Alarms: 'Custom' } },
+      },
+    });
+    stack.regionScope('us-east-1');
+    stack.regionScope('us-east-1', { group: 'Alarms' });
+
+    Annotations.fromStack(stack).hasNoWarning(
+      '*',
+      Match.stringLikeRegexp('.*is declared but unused.*'),
+    );
+  });
+
+  test('warns only for the unused entry when a twin is used but its group is not', () => {
+    const stack = new MultiRegionStack(new App(), 'MyStack', {
+      env,
+      regionStackNames: {
+        'us-east-1': { stackName: 'App-Virginia', groupStackNames: { Alarms: 'Custom' } },
+      },
+    });
+    stack.regionScope('us-east-1'); // default twin used, group 'Alarms' not
+
+    const annotations = Annotations.fromStack(stack);
+    annotations.hasWarning(
+      '*',
+      Match.stringLikeRegexp(".*groupStackNames\\['Alarms'\\] is declared but unused.*"),
+    );
+    annotations.hasNoWarning(
+      '*',
+      Match.stringLikeRegexp('.*\\.stackName is declared but unused.*'),
+    );
+  });
+
+  test('the unused warning is emitted once even when the app is synthesized twice', () => {
+    const app = new App();
+    const stack = new MultiRegionStack(app, 'MyStack', {
+      env,
+      regionStackNames: { 'us-east-01': { stackName: 'App-Virginia' } },
+    });
+    stack.regionScope('us-east-1');
+    app.synth();
+    app.synth({ force: true });
+
+    const warnings = stack.node.metadata.filter(
+      (m) => m.type === 'aws:cdk:warning' && /is declared but unused/.test(String(m.data)),
+    );
+    expect(warnings).toHaveLength(1);
+  });
+
+  test('an own-region group override colliding with the main stack name is rejected', () => {
+    const stack = new MultiRegionStack(new App(), 'MyStack', {
+      env,
+      // a sibling group in the main region named exactly like the main stack
+      regionStackNames: { 'ap-northeast-1': { groupStackNames: { Extra: 'MyStack' } } },
+    });
+    expect(() => stack.regionScope('ap-northeast-1', { group: 'Extra' })).toThrow(
+      /second stack named 'MyStack' in region 'ap-northeast-1'/,
+    );
+  });
 });
 
 describe('validation', () => {

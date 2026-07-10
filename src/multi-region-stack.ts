@@ -116,6 +116,7 @@ export interface RegionScopeOptions {
 const STACK_NAME_PATTERN = /^[A-Za-z][A-Za-z0-9-]*$/;
 const MAX_STACK_NAME_LENGTH = 128;
 const WARNING_ID = 'cdk-multi-region-stack:stackNotDeployedWithMainStack';
+const UNUSED_NAME_WARNING_ID = 'cdk-multi-region-stack:unusedRegionStackName';
 const CYCLIC_REFERENCE_ISSUE_URL = 'https://github.com/go-to-k/cdk-multi-region-stack/issues/6';
 
 /**
@@ -203,6 +204,7 @@ function enrichCyclicReferenceError(e: unknown, consumer: Stack, target: Stack):
 export class MultiRegionStack extends Stack {
   private readonly twins = new Map<string, Stack>();
   private readonly warnedStacks = new Set<Stack>();
+  private readonly warnedUnusedNameKeys = new Set<string>();
   private readonly inheritedProps: MultiRegionStackProps;
   private readonly regionStackNames: { [region: string]: RegionStackNames };
 
@@ -224,6 +226,7 @@ export class MultiRegionStack extends Stack {
     this.node.addValidation({
       validate: () => {
         this.warnAboutStacksNotDeployedWithMain();
+        this.warnAboutUnusedRegionStackNames();
         return [];
       },
     });
@@ -348,6 +351,50 @@ export class MultiRegionStack extends Stack {
         );
       }
     }
+  }
+
+  /**
+   * A `regionStackNames` entry only takes effect when the matching twin is
+   * created (`regionScope()` is called for it). An entry with no matching
+   * twin is either a typo in the region/group or a region intentionally
+   * skipped in this environment — warn so a silently-ineffective override
+   * (which would defeat an in-place migration) does not go unnoticed. The Set
+   * guard keeps the warning from being appended again on repeated synth.
+   */
+  private warnAboutUnusedRegionStackNames(): void {
+    for (const [region, names] of Object.entries(this.regionStackNames)) {
+      if (names.stackName !== undefined && !this.twins.has(region)) {
+        this.warnUnusedName(region, `regionStackNames['${region}'].stackName`, region);
+      }
+      for (const group of Object.keys(names.groupStackNames ?? {})) {
+        const key = `${region}/${group}`;
+        if (!this.twins.has(key)) {
+          this.warnUnusedName(
+            key,
+            `regionStackNames['${region}'].groupStackNames['${group}']`,
+            region,
+            group,
+          );
+        }
+      }
+    }
+  }
+
+  private warnUnusedName(key: string, label: string, region: string, group?: string): void {
+    if (this.warnedUnusedNameKeys.has(key)) {
+      return;
+    }
+    this.warnedUnusedNameKeys.add(key);
+    const call =
+      group === undefined
+        ? `regionScope('${region}')`
+        : `regionScope('${region}', { group: '${group}' })`;
+    Annotations.of(this).addWarningV2(
+      UNUSED_NAME_WARNING_ID,
+      `${label} is declared but unused: ${call} is never called, so this name has no effect. ` +
+        'Remove it, or fix a typo in the region/group. ' +
+        '(If the region is intentionally skipped in this environment, acknowledge this warning.)',
+    );
   }
 
   private validateGroupName(group: string): void {
