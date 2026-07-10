@@ -1,0 +1,36 @@
+{
+  "version": "53.0.0",
+  "files": {
+    "31140ce5921f80123008765a60e2192cf1e46ada6affd18ba12754bca501e093": {
+      "displayName": "MultiRegionStackRenameInteg-us-east-1/Custom::CrossRegionExportWriterCustomResourceProvider Code",
+      "source": {
+        "path": "asset.31140ce5921f80123008765a60e2192cf1e46ada6affd18ba12754bca501e093",
+        "packaging": "zip"
+      },
+      "destinations": {
+        "current_account-us-east-1-b630261f": {
+          "bucketName": "cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1",
+          "objectKey": "31140ce5921f80123008765a60e2192cf1e46ada6affd18ba12754bca501e093.zip",
+          "region": "us-east-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-file-publishing-role-${AWS::AccountId}-us-east-1"
+        }
+      }
+    },
+    "0b01f76983dac45bd7b73563f15cd04953d62acf1a763f22e28b423c70d6810a": {
+      "displayName": "MrsRenameInteg-Virginia Template",
+      "source": {
+        "path": "MultiRegionStackRenameInteg-us-east-1.template.json",
+        "packaging": "file"
+      },
+      "destinations": {
+        "current_account-us-east-1-3551ccf1": {
+          "bucketName": "cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1",
+          "objectKey": "0b01f76983dac45bd7b73563f15cd04953d62acf1a763f22e28b423c70d6810a.json",
+          "region": "us-east-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-file-publishing-role-${AWS::AccountId}-us-east-1"
+        }
+      }
+    }
+  },
+  "dockerImages": {}
+}

@@ -44,9 +44,36 @@ export interface RegionScopeOptions {
    * @default - the region's default twin stack (or the stack itself for its own region)
    */
   readonly group?: string;
+
+  /**
+   * Overrides the CloudFormation stack name of the twin/group stack for
+   * this region, instead of the default shared name (`<stackName>` for the
+   * twin, `<stackName>-<group>` for a group).
+   *
+   * The name is used verbatim (the `-<group>` suffix is NOT appended). The
+   * main use case is migrating an existing deployment whose per-region
+   * stacks were created by hand under different names (e.g. `App-Tokyo` in
+   * the main region and `App-Virginia` in us-east-1): matching those names
+   * lets CloudFormation update the existing stacks in place instead of
+   * creating new ones and orphaning the old ones.
+   *
+   * The shared stack name is a convention, not a technical requirement:
+   * cross-region references work with any concrete name under every
+   * reference strength (`strong`/`weak`/`both`). For weak, the main stack
+   * embeds `Fn::GetStackOutput` with the twin's actual (overridden) name.
+   *
+   * Like the default name, it must start with a letter and contain only
+   * letters, digits and hyphens, and stay within 128 characters. Two stacks
+   * with the same name in the same region are rejected. Passing this for the
+   * stack's own region without a group is an error — set the main stack's
+   * name via the `stackName` prop instead.
+   *
+   * @default - the shared name (`<stackName>`, or `<stackName>-<group>` for a group)
+   */
+  readonly stackName?: string;
 }
 
-const GROUP_NAME_PATTERN = /^[A-Za-z][A-Za-z0-9-]*$/;
+const STACK_NAME_PATTERN = /^[A-Za-z][A-Za-z0-9-]*$/;
 const MAX_STACK_NAME_LENGTH = 128;
 const WARNING_ID = 'cdk-multi-region-stack:stackNotDeployedWithMainStack';
 const CYCLIC_REFERENCE_ISSUE_URL = 'https://github.com/go-to-k/cdk-multi-region-stack/issues/6';
@@ -176,45 +203,72 @@ export class MultiRegionStack extends Stack {
    * references (see `RegionScopeOptions.group`). A group in the stack's own
    * region creates a sibling stack in the main region.
    *
+   * With `options.stackName`, the twin/group uses that name verbatim instead
+   * of the shared name — mainly to adopt an existing deployment whose
+   * per-region stacks were created by hand under different names (see
+   * `RegionScopeOptions.stackName`).
+   *
    * @param region The region in which constructs created in this scope will be provisioned (e.g. `us-east-1`)
-   * @param options Options, e.g. a `group` for an additional stack in the region
+   * @param options Options, e.g. a `group` for an additional stack in the region, or a `stackName` override
    */
   public regionScope(region: string, options?: RegionScopeOptions): Stack {
     if (Token.isUnresolved(region)) {
       throw new Error('regionScope() requires a concrete region string, got an unresolved token');
     }
     const group = options?.group;
+    const stackNameOverride = options?.stackName;
+
     if (group === undefined && region === this.region) {
+      if (stackNameOverride !== undefined && stackNameOverride !== this.stackName) {
+        throw new Error(
+          `regionScope() cannot rename the main stack (region '${region}'); set its name via the stack's \`stackName\` prop`,
+        );
+      }
       return this;
     }
 
     const key = group === undefined ? region : `${region}/${group}`;
     let twin = this.twins.get(key);
-    if (!twin) {
-      if (group !== undefined) {
-        this.validateGroupName(group);
+    if (twin) {
+      if (stackNameOverride !== undefined && twin.stackName !== stackNameOverride) {
+        throw new Error(
+          `regionScope() was already called for ${group === undefined ? `region '${region}'` : `region '${region}' group '${group}'`} ` +
+            `with stack name '${twin.stackName}'; it cannot be changed to '${stackNameOverride}'`,
+        );
       }
-      const parent = Stage.of(this) ?? this.node.root;
-      const suffix = group === undefined ? '' : `-${group}`;
-      twin = new TwinStack(parent as Construct, `${this.node.id}-${region}${suffix}`, {
-        stackName: `${this.stackName}${suffix}`,
-        env: {
-          account: Token.isUnresolved(this.account) ? undefined : this.account,
-          region,
-        },
-        crossRegionReferences: true,
-        description: this.inheritedProps.description,
-        terminationProtection: this.inheritedProps.terminationProtection,
-        tags: this.inheritedProps.tags,
-      });
-      OWNERS.set(twin, this);
-      // CloudFormation rejects templates with zero resources. Keeping a
-      // no-op placeholder means "user removed the last resource in this
-      // region" results in an (almost) empty twin stack being updated,
-      // instead of the deployed resources being silently orphaned.
-      new CfnWaitConditionHandle(twin, 'Placeholder');
-      this.twins.set(key, twin);
+      return twin;
     }
+
+    if (group !== undefined) {
+      this.validateGroupName(group);
+    }
+    if (stackNameOverride !== undefined) {
+      this.validateStackNameFormat(stackNameOverride);
+    }
+    const suffix = group === undefined ? '' : `-${group}`;
+    const stackName = stackNameOverride ?? `${this.stackName}${suffix}`;
+    this.validateStackNameLength(stackName);
+    this.validateNoStackNameCollision(region, stackName);
+
+    const parent = Stage.of(this) ?? this.node.root;
+    twin = new TwinStack(parent as Construct, `${this.node.id}-${region}${suffix}`, {
+      stackName,
+      env: {
+        account: Token.isUnresolved(this.account) ? undefined : this.account,
+        region,
+      },
+      crossRegionReferences: true,
+      description: this.inheritedProps.description,
+      terminationProtection: this.inheritedProps.terminationProtection,
+      tags: this.inheritedProps.tags,
+    });
+    OWNERS.set(twin, this);
+    // CloudFormation rejects templates with zero resources. Keeping a
+    // no-op placeholder means "user removed the last resource in this
+    // region" results in an (almost) empty twin stack being updated,
+    // instead of the deployed resources being silently orphaned.
+    new CfnWaitConditionHandle(twin, 'Placeholder');
+    this.twins.set(key, twin);
     return twin;
   }
 
@@ -263,17 +317,42 @@ export class MultiRegionStack extends Stack {
   }
 
   private validateGroupName(group: string): void {
-    if (!GROUP_NAME_PATTERN.test(group)) {
+    if (!STACK_NAME_PATTERN.test(group)) {
       throw new Error(
         `regionScope() group must start with a letter and contain only letters, digits and hyphens (it becomes part of the stack name), got: '${group}'`,
       );
     }
-    if (
-      !Token.isUnresolved(this.stackName) &&
-      `${this.stackName}-${group}`.length > MAX_STACK_NAME_LENGTH
-    ) {
+  }
+
+  private validateStackNameFormat(stackName: string): void {
+    if (!STACK_NAME_PATTERN.test(stackName)) {
       throw new Error(
-        `regionScope() group makes the stack name '${this.stackName}-${group}' exceed ${MAX_STACK_NAME_LENGTH} characters`,
+        `regionScope() stackName must start with a letter and contain only letters, digits and hyphens, got: '${stackName}'`,
+      );
+    }
+  }
+
+  private validateStackNameLength(stackName: string): void {
+    if (!Token.isUnresolved(stackName) && stackName.length > MAX_STACK_NAME_LENGTH) {
+      throw new Error(
+        `regionScope() stack name '${stackName}' would exceed ${MAX_STACK_NAME_LENGTH} characters`,
+      );
+    }
+  }
+
+  /**
+   * Two stacks with the same name in the same region collide at deploy time.
+   * The main stack occupies its own name in its region; each existing
+   * twin/group occupies its resolved name in its region.
+   */
+  private validateNoStackNameCollision(region: string, stackName: string): void {
+    const mainCollides = region === this.region && stackName === this.stackName;
+    const twinCollides = [...this.twins.values()].some(
+      (t) => t.region === region && t.stackName === stackName,
+    );
+    if (mainCollides || twinCollides) {
+      throw new Error(
+        `regionScope() would create a second stack named '${stackName}' in region '${region}'; stack names must be unique per region`,
       );
     }
   }

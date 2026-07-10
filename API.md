@@ -1340,6 +1340,7 @@ const regionScopeOptions: RegionScopeOptions = { ... }
 | **Name** | **Type** | **Description** |
 | --- | --- | --- |
 | <code><a href="#cdk-multi-region-stack.RegionScopeOptions.property.group">group</a></code> | <code>string</code> | Name of an additional stack ("group") in the region. |
+| <code><a href="#cdk-multi-region-stack.RegionScopeOptions.property.stackName">stackName</a></code> | <code>string</code> | Overrides the CloudFormation stack name of the twin/group stack for this region, instead of the default shared name (`<stackName>` for the twin, `<stackName>-<group>` for a group). |
 
 ---
 
@@ -1376,6 +1377,37 @@ Note: a stack that is not a dependency of the main stack (e.g. a group
 whose resources reference the main stack) is NOT deployed by
 `cdk deploy <MainStack>` — deploy with a wildcard. A warning is
 emitted at synth time for such stacks.
+
+---
+
+##### `stackName`<sup>Optional</sup> <a name="stackName" id="cdk-multi-region-stack.RegionScopeOptions.property.stackName"></a>
+
+```typescript
+public readonly stackName: string;
+```
+
+- *Type:* string
+- *Default:* the shared name (`<stackName>`, or `<stackName>-<group>` for a group)
+
+Overrides the CloudFormation stack name of the twin/group stack for this region, instead of the default shared name (`<stackName>` for the twin, `<stackName>-<group>` for a group).
+
+The name is used verbatim (the `-<group>` suffix is NOT appended). The
+main use case is migrating an existing deployment whose per-region
+stacks were created by hand under different names (e.g. `App-Tokyo` in
+the main region and `App-Virginia` in us-east-1): matching those names
+lets CloudFormation update the existing stacks in place instead of
+creating new ones and orphaning the old ones.
+
+The shared stack name is a convention, not a technical requirement:
+cross-region references work with any concrete name under every
+reference strength (`strong`/`weak`/`both`). For weak, the main stack
+embeds `Fn::GetStackOutput` with the twin's actual (overridden) name.
+
+Like the default name, it must start with a letter and contain only
+letters, digits and hyphens, and stay within 128 characters. Two stacks
+with the same name in the same region are rejected. Passing this for the
+stack's own region without a group is an error — set the main stack's
+name via the `stackName` prop instead.
 
 ---
 

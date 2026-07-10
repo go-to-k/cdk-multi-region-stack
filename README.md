@@ -82,7 +82,7 @@ At synth time this produces one CloudFormation stack per region, all with the **
 - `stack.regionScope(region)` lazily creates a "twin" `Stack` — a sibling of your stack (under the same `App`/`Stage`) with the same `stackName`, targeting the same account in the given region. Constructs created in that scope deploy to that region.
 - Because the main stack references twin values, the CDK CLI treats twins as upstream dependencies: **`cdk deploy MyApp` deploys the twins automatically**, twins first.
 - Values crossing regions use CDK's export machinery. The reference strength (`strong` / `weak` / `both`) follows the `@aws-cdk/core:defaultCrossStackReferences` context flag (aws-cdk-lib >= 2.254.0). See [reference strength](https://github.com/aws/aws-cdk/blob/main/packages/aws-cdk-lib/README.md#reference-strength).
-  - **`strong` (default) adds a custom resource** on each side of every cross-region reference — an ExportWriter on the twin and an ExportReader on the main stack, each backed by a Lambda + role. If you'd rather not create those, opt into `weak`, which needs **zero extra infrastructure** (the value crosses via `Fn::GetStackOutput`, made possible by the shared stack name):
+  - **`strong` (default) adds a custom resource** on each side of every cross-region reference — an ExportWriter on the twin and an ExportReader on the main stack, each backed by a Lambda + role. If you'd rather not create those, opt into `weak`, which needs **zero extra infrastructure** (the value crosses via `Fn::GetStackOutput`, which embeds the twin's actual stack name — the shared name is a convention, not a requirement, so it works the same after a [stack-name override](#migrating-existing-differently-named-stacks)):
 
     ```ts
     const app = new App({
@@ -128,6 +128,36 @@ Details:
 - The same `(region, group)` pair always returns the same stack. A group in the stack's own region is allowed and creates a second main-region stack.
 - **`cdk deploy MyApp` does NOT deploy groups that reference the main stack.** The CLI extends the selection to *dependencies* only, and such groups are dependents (downstream). Deploy with a wildcard: `cdk deploy 'MyApp*'`. A synth-time warning reminds you when a group (or twin) is not a dependency of the main stack; if the layout is intentional, acknowledge it with `Annotations.of(theStack).acknowledgeWarning('cdk-multi-region-stack:stackNotDeployedWithMainStack')`.
 - Removing a `regionScope(region, { group })` call orphans the deployed group stack, same as removing a `regionScope()` call (see the caveats below).
+
+## Migrating existing differently-named stacks
+
+If you already run this workload as separate hand-split stacks with **different names per region** — e.g. `App-Tokyo` in `ap-northeast-1` and `App-Virginia` in `us-east-1` — the default shared-name behavior would create brand-new stacks and orphan the deployed ones. To adopt `MultiRegionStack` **in place**, name each stack to match what is already deployed:
+
+- Set the main stack's name with the normal `stackName` prop.
+- Set each twin's name with `regionScope(region, { stackName })`.
+
+```ts
+const stack = new MultiRegionStack(app, 'MyApp', {
+  env: { account: '123456789012', region: 'ap-northeast-1' },
+  stackName: 'App-Tokyo', // matches the existing main-region stack
+});
+
+// Matches the existing us-east-1 stack instead of the shared 'App-Tokyo' name
+const cert = new acm.Certificate(
+  stack.regionScope('us-east-1', { stackName: 'App-Virginia' }),
+  'Cert',
+  { domainName: 'example.com', validation: acm.CertificateValidation.fromDns(hostedZone) },
+);
+
+new cloudfront.Distribution(stack, 'Dist', { defaultBehavior: { origin }, certificate: cert });
+```
+
+Because CloudFormation identifies a stack by `(name, region, account)`, matching the names lets `cdk deploy` update the existing stacks rather than replace them. Notes:
+
+- The name is used **verbatim** — for a `group`, the `-<group>` suffix is NOT appended, so pass the full name you want.
+- The shared name is only a convention, so overriding works under every reference strength, `weak` included: the main stack embeds `Fn::GetStackOutput` with the twin's overridden name.
+- The name follows the same rules as a group (starts with a letter; letters, digits and hyphens; ≤ 128 chars). Two stacks with the same name in the same region are rejected, and you cannot rename the main stack through its own region — use the `stackName` prop for that.
+- **Still run `cdk diff` per stack before deploying** and confirm it shows updates, not replacements, especially for the main-region resources whose stack you renamed.
 
 ## Conditionally skipping a region
 
