@@ -8,17 +8,17 @@ import { Construct } from 'constructs';
  */
 export interface RegionStackNames {
   /**
-   * Name of the region's default twin, instead of the shared name
-   * (`<stackName>`).
+   * Name of the region's default twin, instead of the main stack's name
+   * (which every twin shares by default).
    *
-   * @default - the shared name (`<stackName>`)
+   * @default - the main stack's name
    */
   readonly stackName?: string;
 
   /**
    * Names of groups in the region, keyed by group name.
    *
-   * @default - each group uses the derived name (`<stackName>-<group>`)
+   * @default - each group uses the derived name (`<main stack name>-<group>`)
    */
   readonly groupStackNames?: { [group: string]: string };
 }

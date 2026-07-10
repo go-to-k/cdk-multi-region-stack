@@ -1455,7 +1455,7 @@ const regionStackNames: RegionStackNames = { ... }
 | **Name** | **Type** | **Description** |
 | --- | --- | --- |
 | <code><a href="#cdk-multi-region-stack.RegionStackNames.property.groupStackNames">groupStackNames</a></code> | <code>{[ key: string ]: string}</code> | Names of groups in the region, keyed by group name. |
-| <code><a href="#cdk-multi-region-stack.RegionStackNames.property.stackName">stackName</a></code> | <code>string</code> | Name of the region's default twin, instead of the shared name (`<stackName>`). |
+| <code><a href="#cdk-multi-region-stack.RegionStackNames.property.stackName">stackName</a></code> | <code>string</code> | Name of the region's default twin, instead of the main stack's name (which every twin shares by default). |
 
 ---
 
@@ -1466,7 +1466,7 @@ public readonly groupStackNames: {[ key: string ]: string};
 ```
 
 - *Type:* {[ key: string ]: string}
-- *Default:* each group uses the derived name (`<stackName>-<group>`)
+- *Default:* each group uses the derived name (`<main stack name>-<group>`)
 
 Names of groups in the region, keyed by group name.
 
@@ -1479,9 +1479,9 @@ public readonly stackName: string;
 ```
 
 - *Type:* string
-- *Default:* the shared name (`<stackName>`)
+- *Default:* the main stack's name
 
-Name of the region's default twin, instead of the shared name (`<stackName>`).
+Name of the region's default twin, instead of the main stack's name (which every twin shares by default).
 
 ---
 
