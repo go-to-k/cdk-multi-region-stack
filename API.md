@@ -572,6 +572,11 @@ cyclic reference, i.e. that twin also holds a resource the main stack
 references (see `RegionScopeOptions.group`). A group in the stack's own
 region creates a sibling stack in the main region.
 
+With `options.stackName`, the twin/group uses that name verbatim instead
+of the shared name — mainly to adopt an existing deployment whose
+per-region stacks were created by hand under different names (see
+`RegionScopeOptions.stackName`).
+
 ###### `region`<sup>Required</sup> <a name="region" id="cdk-multi-region-stack.MultiRegionStack.regionScope.parameter.region"></a>
 
 - *Type:* string
@@ -584,7 +589,7 @@ The region in which constructs created in this scope will be provisioned (e.g. `
 
 - *Type:* <a href="#cdk-multi-region-stack.RegionScopeOptions">RegionScopeOptions</a>
 
-Options, e.g. a `group` for an additional stack in the region.
+Options, e.g. a `group` for an additional stack in the region, or a `stackName` override.
 
 ---
 
