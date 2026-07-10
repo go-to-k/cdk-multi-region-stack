@@ -16,14 +16,12 @@ const app = new App();
 const stack = new MultiRegionStack(app, 'MultiRegionStackRenameInteg', {
   env: { region: 'ap-northeast-1' },
   stackName: 'MrsRenameInteg-Tokyo',
+  regionStackNames: { 'us-east-1': 'MrsRenameInteg-Virginia' },
 });
 
 // Twin (us-east-1) with an independent name — stands in for an ACM
 // certificate / WAF WebACL living in the pre-existing us-east-1 stack.
-const topic = new sns.Topic(
-  stack.regionScope('us-east-1', { stackName: 'MrsRenameInteg-Virginia' }),
-  'GlobalTopic',
-);
+const topic = new sns.Topic(stack.regionScope('us-east-1'), 'GlobalTopic');
 
 // Main-region resource consuming the twin's value across regions. Under strong
 // references the export writer/reader wiring is name-independent; the deploy

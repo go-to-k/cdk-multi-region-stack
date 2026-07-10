@@ -9,7 +9,51 @@ import { Construct } from 'constructs';
  * because twin stacks for other regions cannot be created for a
  * region-agnostic stack. The account may remain environment-agnostic.
  */
-export interface MultiRegionStackProps extends StackProps {}
+export interface MultiRegionStackProps extends StackProps {
+  /**
+   * Overrides the CloudFormation stack name of individual twin/group stacks,
+   * instead of the default shared name (`<stackName>` for a region's twin,
+   * `<stackName>-<group>` for a group).
+   *
+   * Keyed by the twin's identity: `<region>` for a region's default twin, or
+   * `<region>/<group>` for a group. The value is used verbatim (the
+   * `-<group>` suffix is NOT appended). Declaring the names here — rather
+   * than at each `regionScope()` call — keeps `regionScope()` a pure,
+   * order-independent accessor: the same call always resolves to the same
+   * stack no matter where or how often it is invoked.
+   *
+   * The main use case is adopting `MultiRegionStack` for a workload already
+   * deployed as separate hand-split stacks with different names per region
+   * (e.g. `App-Tokyo` in the main region, `App-Virginia` in us-east-1):
+   * matching those names lets CloudFormation update the existing stacks in
+   * place instead of creating new ones and orphaning the old ones.
+   *
+   * ```ts
+   * new MultiRegionStack(app, 'MyApp', {
+   *   env: { region: 'ap-northeast-1' },
+   *   stackName: 'App-Tokyo',
+   *   regionStackNames: {
+   *     'us-east-1': 'App-Virginia',
+   *     'us-east-1/Alarms': 'App-Virginia-Alarms',
+   *   },
+   * });
+   * ```
+   *
+   * The shared stack name is a convention, not a technical requirement:
+   * cross-region references work with any concrete name under every
+   * reference strength (`strong`/`weak`/`both`). For weak, the main stack
+   * embeds `Fn::GetStackOutput` with the twin's actual (overridden) name.
+   *
+   * Each name must start with a letter and contain only letters, digits and
+   * hyphens, and stay within 128 characters. Two stacks with the same name
+   * in the same region are rejected. A bare `<region>` key for the stack's
+   * own region is rejected — set the main stack's name via the `stackName`
+   * prop instead.
+   *
+   * @default - every twin/group uses the shared name
+   */
+  readonly regionStackNames?: { [regionOrRegionGroup: string]: string };
+}
 
 /**
  * Options for `MultiRegionStack.regionScope()`.
@@ -44,33 +88,6 @@ export interface RegionScopeOptions {
    * @default - the region's default twin stack (or the stack itself for its own region)
    */
   readonly group?: string;
-
-  /**
-   * Overrides the CloudFormation stack name of the twin/group stack for
-   * this region, instead of the default shared name (`<stackName>` for the
-   * twin, `<stackName>-<group>` for a group).
-   *
-   * The name is used verbatim (the `-<group>` suffix is NOT appended). The
-   * main use case is migrating an existing deployment whose per-region
-   * stacks were created by hand under different names (e.g. `App-Tokyo` in
-   * the main region and `App-Virginia` in us-east-1): matching those names
-   * lets CloudFormation update the existing stacks in place instead of
-   * creating new ones and orphaning the old ones.
-   *
-   * The shared stack name is a convention, not a technical requirement:
-   * cross-region references work with any concrete name under every
-   * reference strength (`strong`/`weak`/`both`). For weak, the main stack
-   * embeds `Fn::GetStackOutput` with the twin's actual (overridden) name.
-   *
-   * Like the default name, it must start with a letter and contain only
-   * letters, digits and hyphens, and stay within 128 characters. Two stacks
-   * with the same name in the same region are rejected. Passing this for the
-   * stack's own region without a group is an error — set the main stack's
-   * name via the `stackName` prop instead.
-   *
-   * @default - the shared name (`<stackName>`, or `<stackName>-<group>` for a group)
-   */
-  readonly stackName?: string;
 }
 
 const STACK_NAME_PATTERN = /^[A-Za-z][A-Za-z0-9-]*$/;
@@ -164,16 +181,20 @@ export class MultiRegionStack extends Stack {
   private readonly twins = new Map<string, Stack>();
   private readonly warnedStacks = new Set<Stack>();
   private readonly inheritedProps: MultiRegionStackProps;
+  private readonly regionStackNames: { [key: string]: string };
 
   constructor(scope: Construct, id: string, props: MultiRegionStackProps) {
     super(scope, id, { ...props, crossRegionReferences: true });
     this.inheritedProps = props;
+    this.regionStackNames = props.regionStackNames ?? {};
 
     if (Token.isUnresolved(this.region)) {
       throw new Error(
         'MultiRegionStack requires a concrete `env.region`: specify it in props (the account may remain environment-agnostic)',
       );
     }
+
+    this.validateRegionStackNames();
 
     // Runs after prepareApp (which resolves cross-stack references into
     // stack dependencies), so the dependency graph is final here.
@@ -203,52 +224,36 @@ export class MultiRegionStack extends Stack {
    * references (see `RegionScopeOptions.group`). A group in the stack's own
    * region creates a sibling stack in the main region.
    *
-   * With `options.stackName`, the twin/group uses that name verbatim instead
-   * of the shared name — mainly to adopt an existing deployment whose
-   * per-region stacks were created by hand under different names (see
-   * `RegionScopeOptions.stackName`).
+   * Stack names come from the `regionStackNames` prop (keyed by `<region>`
+   * or `<region>/<group>`); a region/group with no entry uses the shared
+   * name. Because the name is declared on the stack, not passed here,
+   * `regionScope()` stays a pure accessor: the same call always resolves to
+   * the same stack regardless of call order.
    *
    * @param region The region in which constructs created in this scope will be provisioned (e.g. `us-east-1`)
-   * @param options Options, e.g. a `group` for an additional stack in the region, or a `stackName` override
+   * @param options Options, e.g. a `group` for an additional stack in the region
    */
   public regionScope(region: string, options?: RegionScopeOptions): Stack {
     if (Token.isUnresolved(region)) {
       throw new Error('regionScope() requires a concrete region string, got an unresolved token');
     }
     const group = options?.group;
-    const stackNameOverride = options?.stackName;
 
     if (group === undefined && region === this.region) {
-      if (stackNameOverride !== undefined && stackNameOverride !== this.stackName) {
-        throw new Error(
-          `regionScope() cannot rename the main stack (region '${region}'); set its name via the stack's \`stackName\` prop`,
-        );
-      }
       return this;
     }
 
     const key = group === undefined ? region : `${region}/${group}`;
     let twin = this.twins.get(key);
     if (twin) {
-      if (stackNameOverride !== undefined && twin.stackName !== stackNameOverride) {
-        throw new Error(
-          `regionScope() was already called for ${group === undefined ? `region '${region}'` : `region '${region}' group '${group}'`} ` +
-            `with stack name '${twin.stackName}'; it cannot be changed to '${stackNameOverride}'. ` +
-            `To add a separate stack in '${region}', pass a distinct \`group\`: ` +
-            `regionScope('${region}', { group: '...', stackName: '${stackNameOverride}' })`,
-        );
-      }
       return twin;
     }
 
     if (group !== undefined) {
       this.validateGroupName(group);
     }
-    if (stackNameOverride !== undefined) {
-      this.validateStackNameFormat(stackNameOverride);
-    }
     const suffix = group === undefined ? '' : `-${group}`;
-    const stackName = stackNameOverride ?? `${this.stackName}${suffix}`;
+    const stackName = this.regionStackNames[key] ?? `${this.stackName}${suffix}`;
     this.validateStackNameLength(stackName);
     this.validateNoStackNameCollision(region, stackName);
 
@@ -326,19 +331,38 @@ export class MultiRegionStack extends Stack {
     }
   }
 
-  private validateStackNameFormat(stackName: string): void {
-    if (!STACK_NAME_PATTERN.test(stackName)) {
-      throw new Error(
-        `regionScope() stackName must start with a letter and contain only letters, digits and hyphens, got: '${stackName}'`,
-      );
+  /**
+   * Validates the `regionStackNames` overrides up front (independent of which
+   * regions are actually used): each name's format and length, and that a
+   * bare `<region>` key does not target the stack's own region (which would
+   * mean renaming the main stack).
+   */
+  private validateRegionStackNames(): void {
+    for (const [key, name] of Object.entries(this.regionStackNames)) {
+      const slash = key.indexOf('/');
+      const region = slash < 0 ? key : key.slice(0, slash);
+      const group = slash < 0 ? undefined : key.slice(slash + 1);
+
+      if (group !== undefined) {
+        this.validateGroupName(group);
+      } else if (region === this.region) {
+        throw new Error(
+          `regionStackNames cannot rename the main stack (key '${key}' targets its own region '${region}'); set its name via the \`stackName\` prop instead`,
+        );
+      }
+
+      if (!STACK_NAME_PATTERN.test(name)) {
+        throw new Error(
+          `regionStackNames['${key}'] must start with a letter and contain only letters, digits and hyphens, got: '${name}'`,
+        );
+      }
+      this.validateStackNameLength(name);
     }
   }
 
   private validateStackNameLength(stackName: string): void {
     if (!Token.isUnresolved(stackName) && stackName.length > MAX_STACK_NAME_LENGTH) {
-      throw new Error(
-        `regionScope() stack name '${stackName}' would exceed ${MAX_STACK_NAME_LENGTH} characters`,
-      );
+      throw new Error(`stack name '${stackName}' would exceed ${MAX_STACK_NAME_LENGTH} characters`);
     }
   }
 

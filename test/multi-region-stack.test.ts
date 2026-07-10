@@ -234,10 +234,14 @@ describe('groups', () => {
   });
 });
 
-describe('stackName override', () => {
-  test('the twin uses the overridden name verbatim, keeping account and region', () => {
-    const stack = new MultiRegionStack(new App(), 'MyStack', { env, stackName: 'App-Tokyo' });
-    const use1 = stack.regionScope('us-east-1', { stackName: 'App-Virginia' });
+describe('regionStackNames (per-region name overrides)', () => {
+  test('the twin uses the declared name verbatim, keeping account and region', () => {
+    const stack = new MultiRegionStack(new App(), 'MyStack', {
+      env,
+      stackName: 'App-Tokyo',
+      regionStackNames: { 'us-east-1': 'App-Virginia' },
+    });
+    const use1 = stack.regionScope('us-east-1');
 
     expect(stack.stackName).toBe('App-Tokyo');
     expect(use1.stackName).toBe('App-Virginia');
@@ -245,13 +249,27 @@ describe('stackName override', () => {
     expect(use1.account).toBe(stack.account);
   });
 
-  test('weak references embed the twin overridden name in Fn::GetStackOutput', () => {
+  test('regionScope stays a pure accessor: order-independent and repeatable', () => {
+    const stack = new MultiRegionStack(new App(), 'MyStack', {
+      env,
+      regionStackNames: { 'us-east-1': 'App-Virginia' },
+    });
+    // resolves to the declared name however it is reached
+    const a = stack.regionScope('us-east-1');
+    expect(a.stackName).toBe('App-Virginia');
+    expect(stack.regionScope('us-east-1')).toBe(a);
+  });
+
+  test('weak references embed the declared twin name in Fn::GetStackOutput', () => {
     const app = new App({
       context: { '@aws-cdk/core:defaultCrossStackReferences': 'weak' },
     });
-    const stack = new MultiRegionStack(app, 'MyStack', { env, stackName: 'App-Tokyo' });
-    const use1 = stack.regionScope('us-east-1', { stackName: 'App-Virginia' });
-    const topic = new sns.Topic(use1, 'Topic');
+    const stack = new MultiRegionStack(app, 'MyStack', {
+      env,
+      stackName: 'App-Tokyo',
+      regionStackNames: { 'us-east-1': 'App-Virginia' },
+    });
+    const topic = new sns.Topic(stack.regionScope('us-east-1'), 'Topic');
     new ssm.StringParameter(stack, 'Param', { stringValue: topic.topicArn });
 
     const param = Object.values(
@@ -262,9 +280,13 @@ describe('stackName override', () => {
     );
   });
 
-  test('strong references still wire reader/writer with an overridden name', () => {
-    const stack = new MultiRegionStack(new App(), 'MyStack', { env, stackName: 'App-Tokyo' });
-    const use1 = stack.regionScope('us-east-1', { stackName: 'App-Virginia' });
+  test('strong references still wire reader/writer with a declared name', () => {
+    const stack = new MultiRegionStack(new App(), 'MyStack', {
+      env,
+      stackName: 'App-Tokyo',
+      regionStackNames: { 'us-east-1': 'App-Virginia' },
+    });
+    const use1 = stack.regionScope('us-east-1');
     const topic = new sns.Topic(use1, 'Topic');
     new ssm.StringParameter(stack, 'Param', { stringValue: topic.topicArn });
 
@@ -272,93 +294,115 @@ describe('stackName override', () => {
     Template.fromStack(use1).resourceCountIs('Custom::CrossRegionExportWriter', 1);
   });
 
-  test('the same region returns the same twin; re-passing the same name is fine', () => {
-    const stack = new MultiRegionStack(new App(), 'MyStack', { env });
-    const a = stack.regionScope('us-east-1', { stackName: 'App-Virginia' });
-
-    expect(stack.regionScope('us-east-1', { stackName: 'App-Virginia' })).toBe(a);
-    // omitting the name still returns the already-created (renamed) twin
-    expect(stack.regionScope('us-east-1')).toBe(a);
-  });
-
-  test('re-requesting a region with a different name is rejected, hinting to use a group', () => {
-    const stack = new MultiRegionStack(new App(), 'MyStack', { env });
-    stack.regionScope('us-east-1', { stackName: 'App-Virginia' });
-    expect(() => stack.regionScope('us-east-1', { stackName: 'Other' })).toThrow(
-      /already called for region 'us-east-1' with stack name 'App-Virginia'/,
-    );
-    // the message points at the fix: a distinct group creates a second stack
-    expect(() => stack.regionScope('us-east-1', { stackName: 'Other' })).toThrow(
-      /pass a distinct `group`/,
+  test('a group is keyed <region>/<group> and used verbatim (no -group suffix)', () => {
+    const stack = new MultiRegionStack(new App(), 'MyStack', {
+      env,
+      regionStackNames: {
+        'us-east-1': 'App-Virginia',
+        'us-east-1/Alarms': 'App-Virginia-Alarms',
+      },
+    });
+    expect(stack.regionScope('us-east-1').stackName).toBe('App-Virginia');
+    expect(stack.regionScope('us-east-1', { group: 'Alarms' }).stackName).toBe(
+      'App-Virginia-Alarms',
     );
   });
 
-  test('overriding a group stack name is used verbatim (no -group suffix)', () => {
-    const stack = new MultiRegionStack(new App(), 'MyStack', { env });
-    const group = stack.regionScope('us-east-1', {
-      group: 'Alarms',
-      stackName: 'App-Virginia-Alarms',
+  test('a region/group with no entry falls back to the shared name', () => {
+    const stack = new MultiRegionStack(new App(), 'MyStack', {
+      env,
+      regionStackNames: { 'us-east-1': 'App-Virginia' },
     });
-    expect(group.stackName).toBe('App-Virginia-Alarms');
+    // the group has no entry, so it keeps <declared-or-shared name>-<group>
+    expect(stack.regionScope('us-east-1', { group: 'Alarms' }).stackName).toBe('MyStack-Alarms');
+    // a region with no entry at all keeps the shared name
+    expect(stack.regionScope('us-west-2').stackName).toBe('MyStack');
   });
 
-  test('a group in the own region can be renamed to a custom sibling name', () => {
-    const stack = new MultiRegionStack(new App(), 'MyStack', { env, stackName: 'App-Tokyo' });
-    const group = stack.regionScope('ap-northeast-1', {
-      group: 'Extra',
-      stackName: 'App-Tokyo-Extra',
+  test('a group in the own region can be named via a <region>/<group> key', () => {
+    const stack = new MultiRegionStack(new App(), 'MyStack', {
+      env,
+      stackName: 'App-Tokyo',
+      regionStackNames: { 'ap-northeast-1/Extra': 'App-Tokyo-Extra' },
     });
+    const group = stack.regionScope('ap-northeast-1', { group: 'Extra' });
     expect(group).not.toBe(stack);
     expect(group.region).toBe('ap-northeast-1');
     expect(group.stackName).toBe('App-Tokyo-Extra');
   });
 
-  test('renaming the main stack via its own region without a group is rejected', () => {
-    const stack = new MultiRegionStack(new App(), 'MyStack', { env });
-    expect(() => stack.regionScope('ap-northeast-1', { stackName: 'Other' })).toThrow(
-      /cannot rename the main stack/,
-    );
-    // passing the main stack own name is a no-op that returns the stack itself
-    expect(stack.regionScope('ap-northeast-1', { stackName: stack.stackName })).toBe(stack);
+  test('a bare own-region key is rejected (use the stackName prop for the main stack)', () => {
+    expect(
+      () =>
+        new MultiRegionStack(new App(), 'MyStack', {
+          env,
+          regionStackNames: { 'ap-northeast-1': 'Other' },
+        }),
+    ).toThrow(/cannot rename the main stack/);
   });
 
   test.each(['1abc', 'a_b', 'has space', '-abc', ''])(
-    'fails for invalid overridden stackName %j',
-    (stackName) => {
-      const stack = new MultiRegionStack(new App(), 'MyStack', { env });
-      expect(() => stack.regionScope('us-east-1', { stackName })).toThrow(
-        /stackName must start with a letter/,
-      );
+    'fails for invalid declared name %j',
+    (name) => {
+      expect(
+        () =>
+          new MultiRegionStack(new App(), 'MyStack', {
+            env,
+            regionStackNames: { 'us-east-1': name },
+          }),
+      ).toThrow(/must start with a letter/);
     },
   );
 
-  test('fails when the overridden stackName exceeds 128 characters', () => {
-    const stack = new MultiRegionStack(new App(), 'MyStack', { env });
-    expect(() => stack.regionScope('us-east-1', { stackName: 'a'.repeat(129) })).toThrow(
-      /exceed 128 characters/,
-    );
+  test('fails when a declared name exceeds 128 characters', () => {
+    expect(
+      () =>
+        new MultiRegionStack(new App(), 'MyStack', {
+          env,
+          regionStackNames: { 'us-east-1': 'a'.repeat(129) },
+        }),
+    ).toThrow(/exceed 128 characters/);
+  });
+
+  test('fails for an invalid group part in the key', () => {
+    expect(
+      () =>
+        new MultiRegionStack(new App(), 'MyStack', {
+          env,
+          regionStackNames: { 'us-east-1/1bad': 'Name' },
+        }),
+    ).toThrow(/group must start with a letter/);
   });
 
   test('two stacks with the same name in the same region are rejected', () => {
-    const stack = new MultiRegionStack(new App(), 'MyStack', { env });
-    stack.regionScope('us-east-1', { group: 'A', stackName: 'Same' });
-    expect(() => stack.regionScope('us-east-1', { group: 'B', stackName: 'Same' })).toThrow(
+    const stack = new MultiRegionStack(new App(), 'MyStack', {
+      env,
+      regionStackNames: { 'us-east-1/A': 'Same', 'us-east-1/B': 'Same' },
+    });
+    stack.regionScope('us-east-1', { group: 'A' });
+    expect(() => stack.regionScope('us-east-1', { group: 'B' })).toThrow(
       /second stack named 'Same' in region 'us-east-1'/,
     );
   });
 
-  test('an override colliding with the default twin name in the same region is rejected', () => {
-    const stack = new MultiRegionStack(new App(), 'MyStack', { env });
+  test('a declared name colliding with the default twin name in the same region is rejected', () => {
+    const stack = new MultiRegionStack(new App(), 'MyStack', {
+      env,
+      regionStackNames: { 'us-east-1/G': 'MyStack' },
+    });
     stack.regionScope('us-east-1'); // default twin: 'MyStack'
-    expect(() =>
-      stack.regionScope('us-east-1', { group: 'G', stackName: stack.stackName }),
-    ).toThrow(/second stack named 'MyStack' in region 'us-east-1'/);
+    expect(() => stack.regionScope('us-east-1', { group: 'G' })).toThrow(
+      /second stack named 'MyStack' in region 'us-east-1'/,
+    );
   });
 
   test('the same name in a different region does not collide', () => {
-    const stack = new MultiRegionStack(new App(), 'MyStack', { env });
-    const use1 = stack.regionScope('us-east-1', { stackName: 'Shared' });
-    const usw2 = stack.regionScope('us-west-2', { stackName: 'Shared' });
+    const stack = new MultiRegionStack(new App(), 'MyStack', {
+      env,
+      regionStackNames: { 'us-east-1': 'Shared', 'us-west-2': 'Shared' },
+    });
+    const use1 = stack.regionScope('us-east-1');
+    const usw2 = stack.regionScope('us-west-2');
     expect(use1.stackName).toBe('Shared');
     expect(usw2.stackName).toBe('Shared');
     expect(use1).not.toBe(usw2);
